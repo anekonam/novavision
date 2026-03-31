@@ -1,0 +1,40 @@
+{
+  "appName": "NovaVision",
+  "nav": {
+    "dashboard": "Dashboard",
+    "therapies": "Meine Therapien",
+    "results": "Ergebnisse",
+    "patients": "Patienten",
+    "settings": "Einstellungen",
+    "admin": "Verwaltung",
+    "help": "Hilfe",
+    "logout": "Abmelden"
+  },
+  "roles": {
+    "patient": "Patient",
+    "clinician": "Kliniker",
+    "admin": "Administrator"
+  },
+  "therapies": {
+    "vrt": "Sehwiederherstellungstherapie",
+    "nec": "NeuroEyeCoach",
+    "net": "NeuroEyeTherapy"
+  },
+  "status": {
+    "notStarted": "Nicht gestartet",
+    "inProgress": "In Bearbeitung",
+    "complete": "Abgeschlossen"
+  },
+  "actions": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "startSession": "Sitzung starten",
+    "viewResults": "Ergebnisse anzeigen",
+    "configure": "Konfigurieren"
+  },
+  "language": {
+    "label": "Sprache",
+    "en-GB": "English",
+    "de-DE": "Deutsch"
+  }
+}

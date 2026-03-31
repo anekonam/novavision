@@ -1,0 +1,66 @@
+services:
+  sql-server:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${NOVAVISION_DB_PASSWORD:-NovaVision_Prod_Change_Me!}"
+    volumes:
+      - sqldata:/var/opt/mssql
+    restart: unless-stopped
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${NOVAVISION_DB_PASSWORD:-NovaVision_Prod_Change_Me!}" -Q "SELECT 1" -C -b
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ${NOVAVISION_REGISTRY:-novavision}/novavision-api:${NOVAVISION_VERSION:-latest}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Server=sql-server,1433;Database=NovaVision;User Id=sa;Password=${NOVAVISION_DB_PASSWORD:-NovaVision_Prod_Change_Me!};TrustServerCertificate=true"
+      Jwt__Secret: "${NOVAVISION_JWT_SECRET}"
+      Jwt__Issuer: "NovaVision"
+      NOVAVISION_CENTRE_NAME: "${NOVAVISION_CENTRE_NAME:-NovaVision Centre}"
+      NOVAVISION_DEPLOYMENT_MODE: "onprem"
+    depends_on:
+      sql-server:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: ${NOVAVISION_REGISTRY:-novavision}/novavision-web:${NOVAVISION_VERSION:-latest}
+    ports:
+      - "${NOVAVISION_PORT:-443}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Optional: auto-update containers when new images are pushed
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_POLL_INTERVAL: 86400  # Check daily
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_STOPPED: "true"
+    restart: unless-stopped
+    profiles:
+      - auto-update
+
+volumes:
+  sqldata:
+  redisdata:

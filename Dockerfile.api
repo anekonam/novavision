@@ -1,0 +1,28 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy solution and project files for layer-cached restore
+COPY NovaVision.sln Directory.Build.props global.json ./
+COPY src/NovaVision.Api/NovaVision.Api.csproj src/NovaVision.Api/
+COPY src/NovaVision.Core/NovaVision.Core.csproj src/NovaVision.Core/
+COPY src/NovaVision.Identity/NovaVision.Identity.csproj src/NovaVision.Identity/
+COPY src/NovaVision.Therapy.Common/NovaVision.Therapy.Common.csproj src/NovaVision.Therapy.Common/
+COPY src/NovaVision.Therapy.Vrt/NovaVision.Therapy.Vrt.csproj src/NovaVision.Therapy.Vrt/
+COPY src/NovaVision.Therapy.Nec/NovaVision.Therapy.Nec.csproj src/NovaVision.Therapy.Nec/
+COPY src/NovaVision.Therapy.Net/NovaVision.Therapy.Net.csproj src/NovaVision.Therapy.Net/
+COPY src/NovaVision.Reporting/NovaVision.Reporting.csproj src/NovaVision.Reporting/
+COPY src/NovaVision.Infrastructure/NovaVision.Infrastructure.csproj src/NovaVision.Infrastructure/
+COPY tests/NovaVision.Unit.Tests/NovaVision.Unit.Tests.csproj tests/NovaVision.Unit.Tests/
+COPY tests/NovaVision.Integration.Tests/NovaVision.Integration.Tests.csproj tests/NovaVision.Integration.Tests/
+RUN dotnet restore
+
+# Copy everything and publish
+COPY . .
+RUN dotnet publish src/NovaVision.Api -c Release -o /app --no-restore
+
+# Runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "NovaVision.Api.dll"]

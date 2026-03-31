@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@theme {
+  /* High-contrast accessible colour palette for vision-impaired patients */
+  --color-primary: #1a56db;
+  --color-primary-hover: #1e40af;
+  --color-primary-light: #dbeafe;
+  --color-secondary: #047857;
+  --color-danger: #dc2626;
+  --color-warning: #d97706;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f8fafc;
+  --color-surface-dark: #0f172a;
+
+  /* Text -- high contrast ratios (7:1+ for AAA) */
+  --color-text: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748b;
+  --color-text-on-primary: #ffffff;
+  --color-text-on-dark: #f1f5f9;
+
+  /* Borders */
+  --color-border: #cbd5e1;
+  --color-border-strong: #64748b;
+
+  /* Focus ring */
+  --color-focus: #2563eb;
+
+  /* Font sizes -- larger than typical for accessibility */
+  --font-size-base: 1.125rem;     /* 18px */
+  --font-size-lg: 1.25rem;        /* 20px */
+  --font-size-xl: 1.5rem;         /* 24px */
+  --font-size-2xl: 1.875rem;      /* 30px */
+  --font-size-3xl: 2.25rem;       /* 36px */
+}
+
+/* Base styles */
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Global focus indicator -- clearly visible for keyboard navigation */
+*:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Minimum touch/click target */
+button, a, input, select, textarea, [role="button"] {
+  min-height: 48px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

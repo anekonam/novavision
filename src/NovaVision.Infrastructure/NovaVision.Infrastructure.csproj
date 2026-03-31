@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\NovaVision.Core\NovaVision.Core.csproj" />
+    <ProjectReference Include="..\NovaVision.Identity\NovaVision.Identity.csproj" />
+    <ProjectReference Include="..\NovaVision.Therapy.Common\NovaVision.Therapy.Common.csproj" />
+    <ProjectReference Include="..\NovaVision.Therapy.Vrt\NovaVision.Therapy.Vrt.csproj" />
+    <ProjectReference Include="..\NovaVision.Therapy.Nec\NovaVision.Therapy.Nec.csproj" />
+    <ProjectReference Include="..\NovaVision.Therapy.Net\NovaVision.Therapy.Net.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.5" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

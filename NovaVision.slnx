@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NovaVision.Api/NovaVision.Api.csproj" />
+    <Project Path="src/NovaVision.Core/NovaVision.Core.csproj" />
+    <Project Path="src/NovaVision.Identity/NovaVision.Identity.csproj" />
+    <Project Path="src/NovaVision.Infrastructure/NovaVision.Infrastructure.csproj" />
+    <Project Path="src/NovaVision.Reporting/NovaVision.Reporting.csproj" />
+    <Project Path="src/NovaVision.Therapy.Common/NovaVision.Therapy.Common.csproj" />
+    <Project Path="src/NovaVision.Therapy.Nec/NovaVision.Therapy.Nec.csproj" />
+    <Project Path="src/NovaVision.Therapy.Net/NovaVision.Therapy.Net.csproj" />
+    <Project Path="src/NovaVision.Therapy.Vrt/NovaVision.Therapy.Vrt.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NovaVision.Integration.Tests/NovaVision.Integration.Tests.csproj" />
+    <Project Path="tests/NovaVision.Unit.Tests/NovaVision.Unit.Tests.csproj" />
+  </Folder>
+</Solution>
