@@ -12,6 +12,10 @@ dist/
 # IDE
 .idea/
 *.swp
+.vscode/
+
+# Claude Code
+.claude/
 
 # Environment
 .env
