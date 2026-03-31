@@ -106,34 +106,7 @@ if (app.Environment.IsDevelopment())
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<NovaVisionDbContext>();
     await db.Database.MigrateAsync();
-
-    // Seed roles
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
-    foreach (var role in Enum.GetNames<NovaVision.Core.Enums.UserRole>())
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            await roleManager.CreateAsync(new IdentityRole<int>(role));
-        }
-    }
-
-    // Seed admin user
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<NovaVision.Identity.Entities.ApplicationUser>>();
-    if (await userManager.FindByEmailAsync("admin@novavision.com") == null)
-    {
-        var admin = new NovaVision.Identity.Entities.ApplicationUser
-        {
-            UserName = "admin@novavision.com",
-            Email = "admin@novavision.com",
-            EmailConfirmed = true,
-            FirstName = "System",
-            LastName = "Administrator",
-            Role = NovaVision.Core.Enums.UserRole.Admin,
-            IsEnabled = true,
-        };
-        await userManager.CreateAsync(admin, "Admin@Nova2024!");
-        await userManager.AddToRoleAsync(admin, "Admin");
-    }
+    await NovaVision.Infrastructure.Data.SeedData.SeedAsync(scope.ServiceProvider);
 }
 
 app.Run();
