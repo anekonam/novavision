@@ -125,38 +125,38 @@ public static class SeedData
             db.VrtTherapies.Add(vrt);
         }
 
-        // NEC therapy for patient 1 (level 4)
+        // NEC therapy for patient 1 (level 4, cancellation task)
         if (!db.NecTherapies.Any(t => t.UserId == patient1.Id))
         {
             var nec = new NecTherapy { UserId = patient1.Id, CurrentLevel = 4, SessionsCompleted = 12 };
-            // Sample trial results for levels 1-3
             var random = new Random(42);
             for (int level = 1; level <= 3; level++)
             {
+                var stage = (NecStage)(level % 4);
                 for (int session = 1; session <= 4; session++)
                 {
-                    for (int trial = 1; trial <= 40; trial++)
+                    var totalTargets = 10 + level * 2;
+                    var correctClicks = (int)(totalTargets * (0.75 + random.NextDouble() * 0.2));
+                    nec.SessionResults.Add(new NecSessionResult
                     {
-                        nec.TrialResults.Add(new NecTrialResult
-                        {
-                            SessionNumber = (level - 1) * 4 + session,
-                            Level = level,
-                            TrialNumber = trial,
-                            TargetPresent = trial % 2 == 0,
-                            Correct = random.NextDouble() > 0.15, // ~85% accuracy
-                            ResponseTimeMs = 800 + random.Next(800),
-                            TargetX = random.NextDouble() * 20 - 10,
-                            TargetY = random.NextDouble() * 15 - 7.5,
-                            DistractorCount = 5 + level * 2,
-                            SessionDate = DateTime.UtcNow.AddDays(-(36 - (level - 1) * 4 - session)),
-                        });
-                    }
+                        SessionNumber = (level - 1) * 4 + session,
+                        Level = level,
+                        Stage = stage,
+                        TotalTargets = totalTargets,
+                        CorrectClicks = correctClicks,
+                        IncorrectClicks = random.Next(0, 3),
+                        MissedTargets = totalTargets - correctClicks,
+                        ElapsedSeconds = 30 + random.Next(60),
+                        Duration = TimeSpan.FromSeconds(30 + random.Next(60)),
+                        SessionDate = DateTime.UtcNow.AddDays(-(36 - (level - 1) * 4 - session)),
+                        IsComplete = true,
+                    });
                 }
             }
             db.NecTherapies.Add(nec);
         }
 
-        // NET therapy for patient 2
+        // NET therapy for patient 2 (contrast on 0.0-1.0 scale)
         if (!db.NetTherapies.Any(t => t.UserId == patient2.Id))
         {
             var net = new NetTherapy { UserId = patient2.Id, NumberOfTargets = 5, SessionsCompleted = 8 };
@@ -168,8 +168,8 @@ public static class SeedData
                     X = (i - 3) * 6.0,
                     Y = (i % 2 == 0) ? 4.0 : -4.0,
                     Diameter = 1.0,
-                    StartContrast = 100,
-                    CurrentContrast = 100 - i * 8, // Varying contrast levels
+                    StartContrast = 0.9,
+                    CurrentContrast = 0.9 - i * 0.08, // Varying: 0.82, 0.74, 0.66, 0.58, 0.50
                 });
             }
 
@@ -189,7 +189,7 @@ public static class SeedData
                     session.TargetResults.Add(new NetSessionResultTarget
                     {
                         TargetNumber = t,
-                        Contrast = 100 - t * 8 - s * 2 + random.Next(5),
+                        Contrast = 0.9 - t * 0.08 - s * 0.02 + random.NextDouble() * 0.05,
                         Presented = 20,
                         Correct = 14 + random.Next(6),
                         X = (t - 3) * 6.0,
@@ -200,6 +200,46 @@ public static class SeedData
                 net.SessionResults.Add(session);
             }
             db.NetTherapies.Add(net);
+        }
+
+        // UserDetail for patients
+        if (!db.UserDetails.Any(d => d.UserId == patient1.Id))
+        {
+            db.UserDetails.Add(new UserDetail
+            {
+                UserId = patient1.Id,
+                DateOfBirth = new DateTime(1958, 3, 15),
+                Gender = "Male",
+                Country = "US",
+                InjuryCause = "Stroke",
+                InjuryDate = new DateTime(2024, 6, 10),
+                BlindnessType = "Hemianopia",
+                BlindnessSide = "Left",
+                DiagnosticType = DiagnosticType.Binocular,
+                DiagnosticComplete = true,
+                VrtEnabled = true,
+                NecEnabled = true,
+                FixationColour1 = "#ff0000",
+                FixationColour2 = "#00ff00",
+                FixationShape1 = "Circle",
+                FixationShape2 = "Square",
+            });
+        }
+        if (!db.UserDetails.Any(d => d.UserId == patient2.Id))
+        {
+            db.UserDetails.Add(new UserDetail
+            {
+                UserId = patient2.Id,
+                DateOfBirth = new DateTime(1972, 11, 22),
+                Gender = "Female",
+                Country = "DE",
+                InjuryCause = "Traumatic Brain Injury",
+                InjuryDate = new DateTime(2023, 9, 5),
+                BlindnessType = "Quadrantanopia",
+                BlindnessSide = "Right",
+                DiagnosticType = DiagnosticType.Binocular,
+                NetEnabled = true,
+            });
         }
 
         // Calibration for patient 1

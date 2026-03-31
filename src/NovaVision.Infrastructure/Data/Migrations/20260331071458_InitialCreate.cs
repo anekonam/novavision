@@ -118,10 +118,15 @@ namespace NovaVision.Infrastructure.Data.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     UserId = table.Column<int>(type: "int", nullable: false),
                     NumberOfTargets = table.Column<int>(type: "int", nullable: false),
+                    Presentations = table.Column<int>(type: "int", nullable: false),
+                    UpperLimit = table.Column<int>(type: "int", nullable: false),
+                    LowerLimit = table.Column<int>(type: "int", nullable: false),
                     PracticeContrast = table.Column<double>(type: "float", nullable: false),
                     PracticeX = table.Column<double>(type: "float", nullable: false),
                     PracticeY = table.Column<double>(type: "float", nullable: false),
                     PracticeDiameter = table.Column<double>(type: "float", nullable: false),
+                    PracticePresentations = table.Column<int>(type: "int", nullable: false),
+                    PracticeComplete = table.Column<bool>(type: "bit", nullable: false),
                     SessionsCompleted = table.Column<int>(type: "int", nullable: false),
                     IsComplete = table.Column<bool>(type: "bit", nullable: false),
                     CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -185,6 +190,59 @@ namespace NovaVision.Infrastructure.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "UserDetails",
+                columns: table => new
+                {
+                    UserDetailId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    DateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Gender = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Address = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    City = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    State = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Zip = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Country = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Phone = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    InjuryCause = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    InjuryDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    BlindnessType = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    BlindnessSide = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ScreenWidth = table.Column<double>(type: "float", nullable: true),
+                    ScreenHeight = table.Column<double>(type: "float", nullable: true),
+                    ScreenDistance = table.Column<double>(type: "float", nullable: true),
+                    DegreePixels = table.Column<double>(type: "float", nullable: true),
+                    DiagnosticType = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    DiagnosticComplete = table.Column<bool>(type: "bit", nullable: false),
+                    DiagnosticFailed = table.Column<bool>(type: "bit", nullable: false),
+                    Size = table.Column<double>(type: "float", nullable: true),
+                    FixationColour1 = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FixationColour2 = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FixationShape1 = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FixationShape2 = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TestEye = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TherapyStage = table.Column<int>(type: "int", nullable: false),
+                    TherapyPart = table.Column<int>(type: "int", nullable: false),
+                    TherapyLevel = table.Column<int>(type: "int", nullable: false),
+                    TherapyBlock = table.Column<int>(type: "int", nullable: false),
+                    TherapyRepeat = table.Column<int>(type: "int", nullable: false),
+                    VrtComplete = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    NecComplete = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    NetComplete = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    VrtEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    NecEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    NetEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ModifiedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserDetails", x => x.UserDetailId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "VrtTherapies",
                 columns: table => new
                 {
@@ -195,8 +253,11 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     GridSizeY = table.Column<int>(type: "int", nullable: false),
                     GridAngle = table.Column<double>(type: "float", nullable: false),
                     DiagnosticType = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
                     IsComplete = table.Column<bool>(type: "bit", nullable: false),
                     CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Instruction = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -314,22 +375,23 @@ namespace NovaVision.Infrastructure.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "NecTrialResults",
+                name: "NecSessionResults",
                 columns: table => new
                 {
-                    NecTrialResultId = table.Column<long>(type: "bigint", nullable: false)
+                    NecSessionResultId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     NecTherapyId = table.Column<int>(type: "int", nullable: false),
                     SessionNumber = table.Column<int>(type: "int", nullable: false),
                     Level = table.Column<int>(type: "int", nullable: false),
-                    TrialNumber = table.Column<int>(type: "int", nullable: false),
-                    TargetPresent = table.Column<bool>(type: "bit", nullable: false),
-                    Correct = table.Column<bool>(type: "bit", nullable: false),
-                    ResponseTimeMs = table.Column<double>(type: "float", nullable: false),
-                    TargetX = table.Column<double>(type: "float", nullable: false),
-                    TargetY = table.Column<double>(type: "float", nullable: false),
-                    DistractorCount = table.Column<int>(type: "int", nullable: false),
+                    Stage = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    TotalTargets = table.Column<int>(type: "int", nullable: false),
+                    CorrectClicks = table.Column<int>(type: "int", nullable: false),
+                    IncorrectClicks = table.Column<int>(type: "int", nullable: false),
+                    MissedTargets = table.Column<int>(type: "int", nullable: false),
+                    ElapsedSeconds = table.Column<double>(type: "float", nullable: false),
+                    Duration = table.Column<TimeSpan>(type: "time", nullable: false),
                     SessionDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    IsComplete = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -337,9 +399,9 @@ namespace NovaVision.Infrastructure.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_NecTrialResults", x => x.NecTrialResultId);
+                    table.PrimaryKey("PK_NecSessionResults", x => x.NecSessionResultId);
                     table.ForeignKey(
-                        name: "FK_NecTrialResults_NecTherapies_NecTherapyId",
+                        name: "FK_NecSessionResults_NecTherapies_NecTherapyId",
                         column: x => x.NecTherapyId,
                         principalTable: "NecTherapies",
                         principalColumn: "NecTherapyId",
@@ -386,8 +448,6 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     Diameter = table.Column<double>(type: "float", nullable: false),
                     StartContrast = table.Column<double>(type: "float", nullable: false),
                     CurrentContrast = table.Column<double>(type: "float", nullable: false),
-                    UpperLimit = table.Column<double>(type: "float", nullable: false),
-                    LowerLimit = table.Column<double>(type: "float", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -414,6 +474,10 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     BlockType = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     BlockNumber = table.Column<int>(type: "int", nullable: false),
                     TherapyArea = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    GridSizeX = table.Column<int>(type: "int", nullable: false),
+                    GridSizeY = table.Column<int>(type: "int", nullable: false),
+                    GridAngle = table.Column<double>(type: "float", nullable: false),
+                    Tolerance = table.Column<int>(type: "int", nullable: false),
                     StimulusShape = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     StimulusColour = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     StimulusDiameter = table.Column<double>(type: "float", nullable: false),
@@ -422,8 +486,10 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     StimulusMaxDelayTimeMs = table.Column<int>(type: "int", nullable: false),
                     MinIntervalMs = table.Column<int>(type: "int", nullable: false),
                     MaxIntervalMs = table.Column<int>(type: "int", nullable: false),
-                    FixationShape = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    FixationColour = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    FixationShape1 = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    FixationShape2 = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    FixationColour1 = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    FixationColour2 = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     FixationRate = table.Column<double>(type: "float", nullable: false),
                     FixationVariance = table.Column<double>(type: "float", nullable: false),
                     FixationDisplayTimeMs = table.Column<int>(type: "int", nullable: false),
@@ -431,6 +497,8 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     FixationMaxDelayTimeMs = table.Column<int>(type: "int", nullable: false),
                     SessionStimuli = table.Column<int>(type: "int", nullable: false),
                     SessionRepeats = table.Column<int>(type: "int", nullable: false),
+                    ProgressStimuliCount = table.Column<int>(type: "int", nullable: false),
+                    ExcludeCentre = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -506,6 +574,38 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     table.PrimaryKey("PK_VrtBlockResults", x => x.VrtBlockResultId);
                     table.ForeignKey(
                         name: "FK_VrtBlockResults_VrtTherapyBlocks_VrtTherapyBlockId",
+                        column: x => x.VrtTherapyBlockId,
+                        principalTable: "VrtTherapyBlocks",
+                        principalColumn: "VrtTherapyBlockId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "VrtTherapySchedules",
+                columns: table => new
+                {
+                    VrtTherapyScheduleId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    VrtTherapyId = table.Column<int>(type: "int", nullable: false),
+                    VrtTherapyBlockId = table.Column<int>(type: "int", nullable: false),
+                    Sessions = table.Column<int>(type: "int", nullable: false),
+                    SessionsCompleted = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ModifiedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_VrtTherapySchedules", x => x.VrtTherapyScheduleId);
+                    table.ForeignKey(
+                        name: "FK_VrtTherapySchedules_VrtTherapies_VrtTherapyId",
+                        column: x => x.VrtTherapyId,
+                        principalTable: "VrtTherapies",
+                        principalColumn: "VrtTherapyId",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_VrtTherapySchedules_VrtTherapyBlocks_VrtTherapyBlockId",
                         column: x => x.VrtTherapyBlockId,
                         principalTable: "VrtTherapyBlocks",
                         principalColumn: "VrtTherapyBlockId",
@@ -606,14 +706,14 @@ namespace NovaVision.Infrastructure.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_NecSessionResults_NecTherapyId",
+                table: "NecSessionResults",
+                column: "NecTherapyId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_NecTherapies_UserId",
                 table: "NecTherapies",
                 column: "UserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_NecTrialResults_NecTherapyId",
-                table: "NecTrialResults",
-                column: "NecTherapyId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_NetSessionResults_NetTherapyId",
@@ -641,6 +741,12 @@ namespace NovaVision.Infrastructure.Data.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_UserDetails_UserId",
+                table: "UserDetails",
+                column: "UserId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_VrtBlockResults_VrtTherapyBlockId",
                 table: "VrtBlockResults",
                 column: "VrtTherapyBlockId");
@@ -663,6 +769,16 @@ namespace NovaVision.Infrastructure.Data.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_VrtTherapyBlocks_VrtTherapyId",
                 table: "VrtTherapyBlocks",
+                column: "VrtTherapyId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_VrtTherapySchedules_VrtTherapyBlockId",
+                table: "VrtTherapySchedules",
+                column: "VrtTherapyBlockId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_VrtTherapySchedules_VrtTherapyId",
+                table: "VrtTherapySchedules",
                 column: "VrtTherapyId");
         }
 
@@ -688,7 +804,7 @@ namespace NovaVision.Infrastructure.Data.Migrations
                 name: "Licences");
 
             migrationBuilder.DropTable(
-                name: "NecTrialResults");
+                name: "NecSessionResults");
 
             migrationBuilder.DropTable(
                 name: "NetSessionResultTargets");
@@ -703,10 +819,16 @@ namespace NovaVision.Infrastructure.Data.Migrations
                 name: "ScreenCalibrations");
 
             migrationBuilder.DropTable(
+                name: "UserDetails");
+
+            migrationBuilder.DropTable(
                 name: "VrtFixationResults");
 
             migrationBuilder.DropTable(
                 name: "VrtStimulusResults");
+
+            migrationBuilder.DropTable(
+                name: "VrtTherapySchedules");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");

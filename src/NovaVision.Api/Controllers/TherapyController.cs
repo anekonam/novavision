@@ -47,7 +47,7 @@ public class TherapyController : ControllerBase
                 t.CurrentLevel,
                 t.MaxLevel,
                 t.SessionsCompleted,
-                LastSessionDate = t.TrialResults
+                LastSessionDate = t.SessionResults
                     .OrderByDescending(r => r.SessionDate)
                     .Select(r => (DateTime?)r.SessionDate)
                     .FirstOrDefault(),
@@ -125,15 +125,17 @@ public class TherapyController : ControllerBase
 
         if (therapy == null) return NotFound(new { Message = "No NEC therapy assigned" });
 
-        var sessionsByLevel = await _db.NecTrialResults
+        var sessionsByLevel = await _db.NecSessionResults
             .Where(r => r.NecTherapyId == therapy.NecTherapyId)
             .GroupBy(r => r.Level)
             .Select(g => new
             {
                 Level = g.Key,
-                Sessions = g.Select(r => r.SessionNumber).Distinct().Count(),
-                Accuracy = g.Count() == 0 ? 0 : (double)g.Count(r => r.Correct) / g.Count(),
-                AvgResponseTimeMs = g.Average(r => r.ResponseTimeMs),
+                Sessions = g.Count(),
+                TotalTargets = g.Sum(r => r.TotalTargets),
+                CorrectClicks = g.Sum(r => r.CorrectClicks),
+                IncorrectClicks = g.Sum(r => r.IncorrectClicks),
+                AvgElapsedSeconds = g.Average(r => r.ElapsedSeconds),
             })
             .OrderBy(l => l.Level)
             .ToListAsync();

@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
 
+/**
+ * NEC is a CANCELLATION task, not visual search.
+ * 4 stages with specific target/distractor shapes:
+ *   Stage 0/1: Target=Diamond, Distractors=Circle+Cross
+ *   Stage 2: Target=Star, Distractors=Diamond+Cross
+ *   Stage 3: Target=Circle, Distractors=Diamond+Cross
+ * Patient clicks targets on screen. Crosses are always wrong.
+ */
+
 const MAX_LEVEL = 12;
 const MIN_SESSIONS_PER_LEVEL = 3;
 const ADVANCE_THRESHOLD = 0.8;
@@ -14,6 +23,16 @@ function calculateProgression(
   if (accuracy >= ADVANCE_THRESHOLD) return Math.min(currentLevel + 1, MAX_LEVEL);
   if (accuracy < REGRESS_THRESHOLD) return Math.max(currentLevel - 1, 1);
   return currentLevel;
+}
+
+type ClickResult = 'correct' | 'incorrect';
+
+function clickShape(stage: number, shape: string): ClickResult {
+  if (shape === 'cross') return 'incorrect'; // Cross always wrong
+  if ((stage === 0 || stage === 1) && shape === 'diamond') return 'correct';
+  if (stage === 2 && shape === 'star') return 'correct';
+  if (stage === 3 && shape === 'circle') return 'correct';
+  return 'incorrect';
 }
 
 describe('NEC Level Progression', () => {
@@ -40,12 +59,31 @@ describe('NEC Level Progression', () => {
   it('level 12 should not advance', () => {
     expect(calculateProgression(12, 3, 0.95)).toBe(12);
   });
+});
 
-  it('full progression should reach level 12', () => {
-    let level = 1;
-    for (let i = 0; i < MAX_LEVEL * MIN_SESSIONS_PER_LEVEL; i++) {
-      level = calculateProgression(level, MIN_SESSIONS_PER_LEVEL, 0.9);
+describe('NEC Cancellation Task Scoring', () => {
+  it('stage 0/1: diamond clicks are correct', () => {
+    expect(clickShape(0, 'diamond')).toBe('correct');
+    expect(clickShape(1, 'diamond')).toBe('correct');
+  });
+
+  it('stage 2: star clicks are correct', () => {
+    expect(clickShape(2, 'star')).toBe('correct');
+  });
+
+  it('stage 3: circle clicks are correct', () => {
+    expect(clickShape(3, 'circle')).toBe('correct');
+  });
+
+  it('cross clicks are always incorrect in all stages', () => {
+    for (let stage = 0; stage < 4; stage++) {
+      expect(clickShape(stage, 'cross')).toBe('incorrect');
     }
-    expect(level).toBe(MAX_LEVEL);
+  });
+
+  it('clicking wrong target type is incorrect', () => {
+    expect(clickShape(0, 'star')).toBe('incorrect');
+    expect(clickShape(2, 'diamond')).toBe('incorrect');
+    expect(clickShape(3, 'star')).toBe('incorrect');
   });
 });

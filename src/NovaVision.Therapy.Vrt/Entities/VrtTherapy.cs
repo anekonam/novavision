@@ -11,8 +11,12 @@ public class VrtTherapy : BaseEntity
     public int GridSizeY { get; set; } = 15;
     public double GridAngle { get; set; } = 43;
     public DiagnosticType DiagnosticType { get; set; } = DiagnosticType.Binocular;
+    public bool IsActive { get; set; } = true;
     public bool IsComplete { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public string? Name { get; set; }
+    public string? Instruction { get; set; }
 
     public ICollection<VrtTherapyBlock> Blocks { get; set; } = [];
+    public ICollection<VrtTherapySchedule> Schedules { get; set; } = [];
 }

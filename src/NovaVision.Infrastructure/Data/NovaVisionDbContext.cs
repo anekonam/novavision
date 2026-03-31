@@ -17,19 +17,21 @@ public class NovaVisionDbContext : IdentityDbContext<ApplicationUser, IdentityRo
 
     // Core
     public DbSet<Office> Offices => Set<Office>();
+    public DbSet<UserDetail> UserDetails => Set<UserDetail>();
     public DbSet<ScreenCalibration> ScreenCalibrations => Set<ScreenCalibration>();
     public DbSet<Licence> Licences => Set<Licence>();
 
     // VRT
     public DbSet<VrtTherapy> VrtTherapies => Set<VrtTherapy>();
     public DbSet<VrtTherapyBlock> VrtTherapyBlocks => Set<VrtTherapyBlock>();
+    public DbSet<VrtTherapySchedule> VrtTherapySchedules => Set<VrtTherapySchedule>();
     public DbSet<VrtBlockResult> VrtBlockResults => Set<VrtBlockResult>();
     public DbSet<VrtStimulusResult> VrtStimulusResults => Set<VrtStimulusResult>();
     public DbSet<VrtFixationResult> VrtFixationResults => Set<VrtFixationResult>();
 
-    // NEC
+    // NEC (cancellation task)
     public DbSet<NecTherapy> NecTherapies => Set<NecTherapy>();
-    public DbSet<NecTrialResult> NecTrialResults => Set<NecTrialResult>();
+    public DbSet<NecSessionResult> NecSessionResults => Set<NecSessionResult>();
 
     // NET
     public DbSet<NetTherapy> NetTherapies => Set<NetTherapy>();
@@ -55,6 +57,14 @@ public class NovaVisionDbContext : IdentityDbContext<ApplicationUser, IdentityRo
         {
             entity.HasKey(e => e.OfficeId);
             entity.Property(e => e.Name).HasMaxLength(300).IsRequired();
+        });
+
+        // UserDetail
+        builder.Entity<UserDetail>(entity =>
+        {
+            entity.HasKey(e => e.UserDetailId);
+            entity.HasIndex(e => e.UserId).IsUnique();
+            entity.Property(e => e.DiagnosticType).HasConversion<string>().HasMaxLength(20);
         });
 
         // Screen Calibration
@@ -87,10 +97,19 @@ public class NovaVisionDbContext : IdentityDbContext<ApplicationUser, IdentityRo
             entity.HasKey(e => e.VrtTherapyBlockId);
             entity.Property(e => e.BlockType).HasConversion<string>().HasMaxLength(20);
             entity.Property(e => e.StimulusShape).HasConversion<string>().HasMaxLength(20);
-            entity.Property(e => e.FixationShape).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.FixationShape1).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.FixationShape2).HasConversion<string>().HasMaxLength(20);
             entity.Property(e => e.StimulusColour).HasMaxLength(20);
-            entity.Property(e => e.FixationColour).HasMaxLength(20);
+            entity.Property(e => e.FixationColour1).HasMaxLength(20);
+            entity.Property(e => e.FixationColour2).HasMaxLength(20);
             entity.HasOne(e => e.Therapy).WithMany(t => t.Blocks).HasForeignKey(e => e.VrtTherapyId);
+        });
+
+        builder.Entity<VrtTherapySchedule>(entity =>
+        {
+            entity.HasKey(e => e.VrtTherapyScheduleId);
+            entity.HasOne(e => e.Therapy).WithMany(t => t.Schedules).HasForeignKey(e => e.VrtTherapyId);
+            entity.HasOne(e => e.Block).WithMany().HasForeignKey(e => e.VrtTherapyBlockId);
         });
 
         builder.Entity<VrtBlockResult>(entity =>
@@ -114,17 +133,18 @@ public class NovaVisionDbContext : IdentityDbContext<ApplicationUser, IdentityRo
             entity.HasIndex(e => e.VrtBlockResultId);
         });
 
-        // NEC Therapy
+        // NEC Therapy (cancellation task)
         builder.Entity<NecTherapy>(entity =>
         {
             entity.HasKey(e => e.NecTherapyId);
             entity.HasIndex(e => e.UserId);
         });
 
-        builder.Entity<NecTrialResult>(entity =>
+        builder.Entity<NecSessionResult>(entity =>
         {
-            entity.HasKey(e => e.NecTrialResultId);
-            entity.HasOne(e => e.Therapy).WithMany(t => t.TrialResults).HasForeignKey(e => e.NecTherapyId);
+            entity.HasKey(e => e.NecSessionResultId);
+            entity.Property(e => e.Stage).HasConversion<string>().HasMaxLength(20);
+            entity.HasOne(e => e.Therapy).WithMany(t => t.SessionResults).HasForeignKey(e => e.NecTherapyId);
             entity.HasIndex(e => e.NecTherapyId);
         });
 

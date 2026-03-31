@@ -10,10 +10,8 @@ public class NetTherapyTarget : BaseEntity
     public double X { get; set; }
     public double Y { get; set; }
     public double Diameter { get; set; } = 1.0; // visual degrees
-    public double StartContrast { get; set; } = 100;
-    public double CurrentContrast { get; set; } = 100;
-    public double UpperLimit { get; set; } = 43;
-    public double LowerLimit { get; set; } = 32;
+    public double StartContrast { get; set; } = 0.9; // 0.0-1.0 scale (0.15 min, 0.9 max)
+    public double CurrentContrast { get; set; } = 0.9;
 
     public NetTherapy Therapy { get; set; } = null!;
 }

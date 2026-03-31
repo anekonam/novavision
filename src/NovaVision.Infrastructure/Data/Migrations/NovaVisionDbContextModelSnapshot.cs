@@ -327,6 +327,147 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.ToTable("ScreenCalibrations");
                 });
 
+            modelBuilder.Entity("NovaVision.Core.Entities.UserDetail", b =>
+                {
+                    b.Property<int>("UserDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserDetailId"));
+
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BlindnessSide")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BlindnessType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("City")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Country")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double?>("DegreePixels")
+                        .HasColumnType("float");
+
+                    b.Property<bool>("DiagnosticComplete")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("DiagnosticFailed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("DiagnosticType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FixationColour1")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FixationColour2")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FixationShape1")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FixationShape2")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Gender")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("InjuryCause")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("InjuryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("NecComplete")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("NecEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("NetComplete")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("NetEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double?>("ScreenDistance")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("ScreenHeight")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("ScreenWidth")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Size")
+                        .HasColumnType("float");
+
+                    b.Property<string>("State")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TestEye")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TherapyBlock")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TherapyLevel")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TherapyPart")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TherapyRepeat")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TherapyStage")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("VrtComplete")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("VrtEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Zip")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("UserDetailId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserDetails");
+                });
+
             modelBuilder.Entity("NovaVision.Identity.Entities.ApplicationUser", b =>
                 {
                     b.Property<int>("Id")
@@ -432,6 +573,71 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("NovaVision.Therapy.Nec.Entities.NecSessionResult", b =>
+                {
+                    b.Property<int>("NecSessionResultId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NecSessionResultId"));
+
+                    b.Property<int>("CorrectClicks")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<TimeSpan>("Duration")
+                        .HasColumnType("time");
+
+                    b.Property<double>("ElapsedSeconds")
+                        .HasColumnType("float");
+
+                    b.Property<int>("IncorrectClicks")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsComplete")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MissedTargets")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("NecTherapyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SessionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SessionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Stage")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("TotalTargets")
+                        .HasColumnType("int");
+
+                    b.HasKey("NecSessionResultId");
+
+                    b.HasIndex("NecTherapyId");
+
+                    b.ToTable("NecSessionResults");
+                });
+
             modelBuilder.Entity("NovaVision.Therapy.Nec.Entities.NecTherapy", b =>
                 {
                     b.Property<int>("NecTherapyId")
@@ -475,66 +681,6 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("NecTherapies");
-                });
-
-            modelBuilder.Entity("NovaVision.Therapy.Nec.Entities.NecTrialResult", b =>
-                {
-                    b.Property<long>("NecTrialResultId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("NecTrialResultId"));
-
-                    b.Property<bool>("Correct")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DistractorCount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Level")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("ModifiedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ModifiedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("NecTherapyId")
-                        .HasColumnType("int");
-
-                    b.Property<double>("ResponseTimeMs")
-                        .HasColumnType("float");
-
-                    b.Property<DateTime>("SessionDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("SessionNumber")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("TargetPresent")
-                        .HasColumnType("bit");
-
-                    b.Property<double>("TargetX")
-                        .HasColumnType("float");
-
-                    b.Property<double>("TargetY")
-                        .HasColumnType("float");
-
-                    b.Property<int>("TrialNumber")
-                        .HasColumnType("int");
-
-                    b.HasKey("NecTrialResultId");
-
-                    b.HasIndex("NecTherapyId");
-
-                    b.ToTable("NecTrialResults");
                 });
 
             modelBuilder.Entity("NovaVision.Therapy.Net.Entities.NetSessionResult", b =>
@@ -638,6 +784,9 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.Property<bool>("IsComplete")
                         .HasColumnType("bit");
 
+                    b.Property<int>("LowerLimit")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
 
@@ -647,11 +796,17 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.Property<int>("NumberOfTargets")
                         .HasColumnType("int");
 
+                    b.Property<bool>("PracticeComplete")
+                        .HasColumnType("bit");
+
                     b.Property<double>("PracticeContrast")
                         .HasColumnType("float");
 
                     b.Property<double>("PracticeDiameter")
                         .HasColumnType("float");
+
+                    b.Property<int>("PracticePresentations")
+                        .HasColumnType("int");
 
                     b.Property<double>("PracticeX")
                         .HasColumnType("float");
@@ -659,7 +814,13 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.Property<double>("PracticeY")
                         .HasColumnType("float");
 
+                    b.Property<int>("Presentations")
+                        .HasColumnType("int");
+
                     b.Property<int>("SessionsCompleted")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UpperLimit")
                         .HasColumnType("int");
 
                     b.Property<int>("UserId")
@@ -692,9 +853,6 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.Property<double>("Diameter")
                         .HasColumnType("float");
 
-                    b.Property<double>("LowerLimit")
-                        .HasColumnType("float");
-
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
 
@@ -709,9 +867,6 @@ namespace NovaVision.Infrastructure.Data.Migrations
 
                     b.Property<int>("TargetNumber")
                         .HasColumnType("int");
-
-                    b.Property<double>("UpperLimit")
-                        .HasColumnType("float");
 
                     b.Property<double>("X")
                         .HasColumnType("float");
@@ -903,6 +1058,12 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.Property<int>("GridSizeY")
                         .HasColumnType("int");
 
+                    b.Property<string>("Instruction")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsComplete")
                         .HasColumnType("bit");
 
@@ -910,6 +1071,9 @@ namespace NovaVision.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("UserId")
@@ -944,7 +1108,15 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("FixationColour")
+                    b.Property<bool>("ExcludeCentre")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("FixationColour1")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FixationColour2")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -961,13 +1133,27 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.Property<double>("FixationRate")
                         .HasColumnType("float");
 
-                    b.Property<string>("FixationShape")
+                    b.Property<string>("FixationShape1")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FixationShape2")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
                     b.Property<double>("FixationVariance")
                         .HasColumnType("float");
+
+                    b.Property<double>("GridAngle")
+                        .HasColumnType("float");
+
+                    b.Property<int>("GridSizeX")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GridSizeY")
+                        .HasColumnType("int");
 
                     b.Property<int>("MaxIntervalMs")
                         .HasColumnType("int");
@@ -980,6 +1166,9 @@ namespace NovaVision.Infrastructure.Data.Migrations
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ProgressStimuliCount")
+                        .HasColumnType("int");
 
                     b.Property<int>("SessionRepeats")
                         .HasColumnType("int");
@@ -1012,6 +1201,9 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.Property<string>("TherapyArea")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("Tolerance")
+                        .HasColumnType("int");
+
                     b.Property<int>("VrtTherapyId")
                         .HasColumnType("int");
 
@@ -1020,6 +1212,47 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.HasIndex("VrtTherapyId");
 
                     b.ToTable("VrtTherapyBlocks");
+                });
+
+            modelBuilder.Entity("NovaVision.Therapy.Vrt.Entities.VrtTherapySchedule", b =>
+                {
+                    b.Property<int>("VrtTherapyScheduleId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VrtTherapyScheduleId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Sessions")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SessionsCompleted")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VrtTherapyBlockId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VrtTherapyId")
+                        .HasColumnType("int");
+
+                    b.HasKey("VrtTherapyScheduleId");
+
+                    b.HasIndex("VrtTherapyBlockId");
+
+                    b.HasIndex("VrtTherapyId");
+
+                    b.ToTable("VrtTherapySchedules");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
@@ -1073,10 +1306,10 @@ namespace NovaVision.Infrastructure.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("NovaVision.Therapy.Nec.Entities.NecTrialResult", b =>
+            modelBuilder.Entity("NovaVision.Therapy.Nec.Entities.NecSessionResult", b =>
                 {
                     b.HasOne("NovaVision.Therapy.Nec.Entities.NecTherapy", "Therapy")
-                        .WithMany("TrialResults")
+                        .WithMany("SessionResults")
                         .HasForeignKey("NecTherapyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1161,9 +1394,28 @@ namespace NovaVision.Infrastructure.Data.Migrations
                     b.Navigation("Therapy");
                 });
 
+            modelBuilder.Entity("NovaVision.Therapy.Vrt.Entities.VrtTherapySchedule", b =>
+                {
+                    b.HasOne("NovaVision.Therapy.Vrt.Entities.VrtTherapyBlock", "Block")
+                        .WithMany()
+                        .HasForeignKey("VrtTherapyBlockId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NovaVision.Therapy.Vrt.Entities.VrtTherapy", "Therapy")
+                        .WithMany("Schedules")
+                        .HasForeignKey("VrtTherapyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Block");
+
+                    b.Navigation("Therapy");
+                });
+
             modelBuilder.Entity("NovaVision.Therapy.Nec.Entities.NecTherapy", b =>
                 {
-                    b.Navigation("TrialResults");
+                    b.Navigation("SessionResults");
                 });
 
             modelBuilder.Entity("NovaVision.Therapy.Net.Entities.NetSessionResult", b =>
@@ -1188,6 +1440,8 @@ namespace NovaVision.Infrastructure.Data.Migrations
             modelBuilder.Entity("NovaVision.Therapy.Vrt.Entities.VrtTherapy", b =>
                 {
                     b.Navigation("Blocks");
+
+                    b.Navigation("Schedules");
                 });
 
             modelBuilder.Entity("NovaVision.Therapy.Vrt.Entities.VrtTherapyBlock", b =>

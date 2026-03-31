@@ -4,5 +4,6 @@ public enum VrtBlockType
 {
     Status,
     Progress,
-    Rapid
+    Rapid,
+    Standard
 }
