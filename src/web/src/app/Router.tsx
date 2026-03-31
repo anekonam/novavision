@@ -5,6 +5,10 @@ import { DashboardPage } from '../features/patient/DashboardPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { ClinicianDashboard } from '../features/clinician/ClinicianDashboard';
 import { AdminDashboard } from '../features/admin/AdminDashboard';
+import { VrtSessionPage } from '../features/therapy/VrtSessionPage';
+import { NecSessionPage } from '../features/therapy/NecSessionPage';
+import { NetSessionPage } from '../features/therapy/NetSessionPage';
+import { CalibrationWizard } from '../features/therapy/CalibrationWizard';
 import { useAuth } from '../hooks/useAuth';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
@@ -38,6 +42,10 @@ export function Router() {
           <Route path="/" element={<RoleDashboard />} />
           <Route path="/therapies" element={<DashboardPage />} />
           <Route path="/results" element={<Placeholder title="Results" />} />
+          <Route path="/therapy/vrt" element={<VrtSessionPage />} />
+          <Route path="/therapy/nec" element={<NecSessionPage />} />
+          <Route path="/therapy/net" element={<NetSessionPage />} />
+          <Route path="/calibration" element={<CalibrationWizard onComplete={() => window.location.href = '/'} />} />
           <Route path="/patients" element={
             <ProtectedRoute allowedRoles={['Clinician', 'Admin']}>
               <ClinicianDashboard />
