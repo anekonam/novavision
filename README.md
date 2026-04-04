@@ -68,6 +68,9 @@ This repository contains the planning and documentation for the next-generation 
 | [architecture-poc.md](docs/architecture-poc.md) | Architecture -- solution structure, therapy engine design, containerization, API design |
 | [technology-stack.md](docs/technology-stack.md) | Technology choices -- rationale, containerization strategy, browser support |
 | [testing-strategy.md](docs/testing-strategy.md) | Testing -- unit, integration, therapy precision, E2E, accessibility, performance, security |
+| [therapy-vrt.md](docs/therapy-vrt.md) | VRT technical spec -- grid system, calibration, 4 block types, fixation monitoring, timing, data model |
+| [therapy-nec.md](docs/therapy-nec.md) | NEC technical spec -- cancellation task (4 stages), visual search (12 levels), scoring, progression |
+| [therapy-net.md](docs/therapy-net.md) | NET technical spec -- asymmetric staircase (-0.1/+0.05), contrast scale, target independence, alerts |
 
 ## Project Tracking
 

@@ -67,3 +67,6 @@ The existing platform is at `D:\Working\NovaVisionApp` (not this repo). Key refe
 - `docs/testing-strategy.md` -- full test pyramid specification
 - `docs/design-brief.md` -- Figma UI/UX design brief with accessibility requirements
 - `docs/NovaVision.md` -- company and therapy clinical background
+- `docs/therapy-vrt.md` -- VRT technical spec: grid system, calibration, block types, fixation, timing, data model
+- `docs/therapy-nec.md` -- NEC technical spec: cancellation task, 12-level visual search, scoring, progression
+- `docs/therapy-net.md` -- NET technical spec: asymmetric staircase, contrast scale, target independence, alerts
