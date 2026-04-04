@@ -8,6 +8,7 @@ import { SessionRecorder } from '../session/SessionRecorder';
 import type { StimulusShape, ResponseClassification } from '../types/common';
 
 export type VrtBlockType = 'Status' | 'Progress' | 'Rapid' | 'Standard';
+export type RapidDirection = 'Left' | 'Right' | 'Up' | 'Down';
 type VrtSessionPhase = 'idle' | 'presenting' | 'waitingResponse' | 'interval' | 'complete' | 'paused';
 
 export interface VrtBlockConfig {
@@ -16,6 +17,10 @@ export interface VrtBlockConfig {
   gridSizeX: number;
   gridSizeY: number;
   gridAngle: number;
+  // Fixation position (0-1 ratio, default 0.5 = centre)
+  fixationX: number;
+  fixationY: number;
+  // Stimulus
   stimulusShape: StimulusShape;
   stimulusColour: string;
   stimulusDiameter: number;
@@ -24,6 +29,7 @@ export interface VrtBlockConfig {
   stimulusMaxDelayTimeMs: number;
   minIntervalMs: number;
   maxIntervalMs: number;
+  // Dual fixation (original uses two alternating appearances)
   fixationShape1: StimulusShape;
   fixationShape2: StimulusShape;
   fixationColour1: string;
@@ -33,14 +39,19 @@ export interface VrtBlockConfig {
   fixationDisplayTimeMs: number;
   fixationMinResponseTimeMs: number;
   fixationMaxDelayTimeMs: number;
+  // Session
   sessionStimuli: number;
   progressStimuliCount: number;
   excludeCentre: boolean;
+  // Rapid block
+  rapidDirection: RapidDirection;
+  rapidDurationMinutes: number; // 0 = unlimited (count-based)
 }
 
 export const DEFAULT_VRT_BLOCK: VrtBlockConfig = {
   blockType: 'Status',
   gridSizeX: 19, gridSizeY: 15, gridAngle: 43,
+  fixationX: 0.5, fixationY: 0.5,
   stimulusShape: 'circle', stimulusColour: '#ffffff', stimulusDiameter: 0.15,
   stimulusDisplayTimeMs: 200, stimulusMinResponseTimeMs: 150, stimulusMaxDelayTimeMs: 1500,
   minIntervalMs: 1000, maxIntervalMs: 2000,
@@ -49,16 +60,43 @@ export const DEFAULT_VRT_BLOCK: VrtBlockConfig = {
   fixationRate: 0.2, fixationVariance: 0.17,
   fixationDisplayTimeMs: 200, fixationMinResponseTimeMs: 150, fixationMaxDelayTimeMs: 1500,
   sessionStimuli: 284, progressStimuliCount: 200, excludeCentre: true,
+  rapidDirection: 'Right', rapidDurationMinutes: 0,
 };
 
+/** Per-stimulus result matching original StimuliResult model */
+interface StimulusResultData {
+  x: number;
+  y: number;
+  correct: boolean;
+  presented: boolean;
+  responseMs: number;
+  isTopLeft: boolean;
+  isTopRight: boolean;
+  isBottomLeft: boolean;
+  isBottomRight: boolean;
+  isCenter: boolean;
+}
+
+/** Per-fixation result matching original FixationResult model */
+interface FixationResultData {
+  index: number; // Presentation index when fixation change occurs
+  correct: boolean;
+  presented: boolean;
+  responseMs: number;
+}
+
 /**
- * VRT Session Engine -- orchestrates a complete VRT therapy session.
+ * VRT Session Engine — faithful replication of TherapySessionTrialViewModel.cs
  *
- * Supports all 4 block types:
- *   Status: full-field diagnostic perimetry (all grid cells minus centre)
- *   Progress: targeted therapy area stimulation (every 5th is random)
- *   Rapid: directional rapid stimulation in therapy area
- *   Standard: all grid cells minus centre, randomised
+ * Key differences from simplified version:
+ * - Centre cell calculated via Ceiling(GridSize * FixationRatio) - 1 (not Math.floor)
+ * - Quadrant: cells on centre row/col (but not centre) get NO quadrant flag
+ * - Fixation schedule: first change always at index 0
+ * - Progress block: every 5th is random WITH retry to avoid therapy area
+ * - Rapid block: directional ordering (Left/Right/Up/Down)
+ * - Status/Standard: centre excluded AFTER population (matching original filter order)
+ * - False positive warning after 5 consecutive
+ * - Fixation error warning after 3 consecutive misses
  */
 export class VrtSessionEngine {
   private canvas: TherapyCanvas;
@@ -71,34 +109,57 @@ export class VrtSessionEngine {
 
   private config: VrtBlockConfig;
   private phase: VrtSessionPhase = 'idle';
-  private stimulusList: { x: number; y: number }[] = [];
-  private currentStimulusIndex: number = 0;
+
+  // Centre cell coords (original formula)
+  private centreX: number;
+  private centreY: number;
+
+  // Stimulus list and tracking
+  private stimuliResults: StimulusResultData[] = [];
+  private fixationResults: FixationResultData[] = [];
+  private presentedStimuli: number = 0;
+  private presentedFixations: number = 0;
+
+  // Current presentation state
   private currentStimulus: StimulusConfig | null = null;
-  private stimulusPresentedAt: number = 0;
-  private nextStimulusAt: number = 0;
-  private fixationChangeIndices: Set<number> = new Set();
-  private fixationChangePresentedAt: number = 0;
-  private isFixationChanged: boolean = false;
+  private currentStimulusData: StimulusResultData | null = null;
+  private currentFixationData: FixationResultData | null = null;
+  private presentedAt: number = 0;
+  private nextPresentAt: number = 0;
+  private isFixationActive: boolean = false;
+
+  // Error tracking (matches original)
+  private falsePositiveCount: number = 0;
+  private fixationErrorCount: number = 0;
+  private readonly maxFalsePositives = 5;
+  private readonly maxFixationErrors = 3;
+
+  // Rapid block timing
+  private sessionStartTime: number = 0;
 
   private onPhaseChange: ((phase: VrtSessionPhase) => void) | null = null;
   private onProgress: ((presented: number, total: number) => void) | null = null;
+  private onWarning: ((message: string) => void) | null = null;
 
   constructor(canvas: TherapyCanvas, config: VrtBlockConfig = DEFAULT_VRT_BLOCK) {
     this.canvas = canvas;
     this.config = config;
+
+    // Original formula: Ceiling(GridSize * FixationRatio) - 1
+    this.centreX = Math.ceil(config.gridSizeX * config.fixationX) - 1;
+    this.centreY = Math.ceil(config.gridSizeY * config.fixationY) - 1;
+
     this.stimulusRenderer = new StimulusRenderer(canvas);
     this.grid = new GridSystem({
       sizeX: config.gridSizeX, sizeY: config.gridSizeY,
       gridAngle: config.gridAngle, verticalExtent: 32,
     });
-
     this.fixationRenderer = new FixationRenderer(canvas, {
       shape: config.fixationShape1,
       color: config.fixationColour1,
       altColor: config.fixationColour2,
       sizeDegrees: 0.3,
     });
-
     this.timing = new TimingEngine({
       stimulusDisplayTimeMs: config.stimulusDisplayTimeMs,
       stimulusMinResponseTimeMs: config.stimulusMinResponseTimeMs,
@@ -106,31 +167,36 @@ export class VrtSessionEngine {
       minIntervalMs: config.minIntervalMs,
       maxIntervalMs: config.maxIntervalMs,
     });
-
     this.input = new InputHandler();
     this.recorder = new SessionRecorder();
   }
 
-  /** Start the VRT session */
   start(
     onPhaseChange?: (phase: VrtSessionPhase) => void,
     onProgress?: (presented: number, total: number) => void,
+    onWarning?: (message: string) => void,
   ): void {
     this.onPhaseChange = onPhaseChange ?? null;
     this.onProgress = onProgress ?? null;
+    this.onWarning = onWarning ?? null;
 
-    this.stimulusList = this.buildStimulusList();
-    this.fixationChangeIndices = this.buildFixationSchedule();
-    this.currentStimulusIndex = 0;
-    this.phase = 'interval';
-    this.nextStimulusAt = this.timing.now() + this.timing.randomInterval();
+    this.populateStimuliCells();
+    this.buildFixationSchedule();
+    this.orderStimuli();
 
+    this.presentedStimuli = 0;
+    this.presentedFixations = 0;
+    this.falsePositiveCount = 0;
+    this.fixationErrorCount = 0;
+    this.sessionStartTime = performance.now();
+
+    this.nextPresentAt = this.timing.now() + this.timing.randomInterval();
     this.recorder.start();
     this.canvas.clear('#000000');
     this.fixationRenderer.renderNormal();
 
     this.input.start(
-      (timestamp, classification) => this.handleResponse(timestamp, classification),
+      (ts, cls) => this.handleResponse(ts, cls),
       () => this.pause(),
     );
     this.input.updateTimingConfig(
@@ -138,7 +204,7 @@ export class VrtSessionEngine {
       this.config.stimulusMaxDelayTimeMs,
     );
 
-    this.timing.start((timestamp, _delta) => this.tick(timestamp));
+    this.timing.start((ts) => this.tick(ts));
     this.setPhase('interval');
   }
 
@@ -149,7 +215,7 @@ export class VrtSessionEngine {
 
   resume(): void {
     this.timing.resume();
-    this.nextStimulusAt = this.timing.now() + this.timing.randomInterval();
+    this.nextPresentAt = this.timing.now() + this.timing.randomInterval();
     this.setPhase('interval');
     this.canvas.clear('#000000');
     this.fixationRenderer.renderNormal();
@@ -161,129 +227,199 @@ export class VrtSessionEngine {
     this.setPhase('complete');
   }
 
-  getRecorder(): SessionRecorder {
-    return this.recorder;
-  }
-
-  getTimingStats() {
-    return this.timing.getStats();
-  }
+  getRecorder(): SessionRecorder { return this.recorder; }
+  getTimingStats() { return this.timing.getStats(); }
 
   getProgress(): { presented: number; total: number } {
-    return { presented: this.currentStimulusIndex, total: this.stimulusList.length };
+    return { presented: this.presentedStimuli, total: this.stimuliResults.length };
   }
 
+  getStimuliResults(): StimulusResultData[] { return this.stimuliResults; }
+  getFixationResults(): FixationResultData[] { return this.fixationResults; }
+
+  // ========== TICK LOOP ==========
+
   private tick(timestamp: number): void {
+    // Rapid block: check time limit
+    if (this.config.blockType === 'Rapid' && this.config.rapidDurationMinutes > 0) {
+      const elapsed = timestamp - this.sessionStartTime;
+      if (elapsed >= this.config.rapidDurationMinutes * 60000) {
+        this.stop();
+        return;
+      }
+    }
+
     if (this.phase === 'interval') {
-      if (timestamp >= this.nextStimulusAt) {
-        this.presentNextStimulus(timestamp);
+      if (timestamp >= this.nextPresentAt) {
+        this.presentNext(timestamp);
       }
     } else if (this.phase === 'presenting') {
-      if (this.timing.isStimulusExpired(this.stimulusPresentedAt, timestamp)) {
-        this.removeStimulus();
+      if (timestamp - this.presentedAt >= this.config.stimulusDisplayTimeMs) {
+        // Hide stimulus/restore fixation
+        if (this.currentStimulus) {
+          this.stimulusRenderer.erase(this.currentStimulus, '#000000');
+          this.currentStimulus = null;
+        }
+        if (this.isFixationActive) {
+          this.fixationRenderer.renderNormal();
+        }
         this.phase = 'waitingResponse';
       }
     } else if (this.phase === 'waitingResponse') {
-      if (this.timing.isTimedOut(this.stimulusPresentedAt, timestamp)) {
-        // Miss -- no response
-        this.recorder.recordResponse('miss', 0, timestamp,
-          this.stimulusList[this.currentStimulusIndex - 1]?.x,
-          this.stimulusList[this.currentStimulusIndex - 1]?.y);
+      const responseTime = this.isFixationActive
+        ? this.config.fixationMaxDelayTimeMs
+        : this.config.stimulusMaxDelayTimeMs;
+
+      if (timestamp - this.presentedAt > responseTime) {
+        // Miss -- no response within window
+        if (this.isFixationActive && this.currentFixationData) {
+          this.currentFixationData.presented = true;
+          // Fixation miss
+          this.fixationErrorCount++;
+          if (this.fixationErrorCount >= this.maxFixationErrors) {
+            this.onWarning?.('Please keep your eyes on the central point.');
+            this.fixationErrorCount = 0;
+          }
+        } else if (this.currentStimulusData) {
+          this.currentStimulusData.presented = true;
+          this.recorder.recordResponse('miss', 0, timestamp,
+            this.currentStimulusData.x, this.currentStimulusData.y);
+        }
+        this.isFixationActive = false;
+        this.currentFixationData = null;
+        this.currentStimulusData = null;
         this.advanceToNext(timestamp);
       }
     }
-
-    // Handle fixation change expiry
-    if (this.isFixationChanged &&
-        this.timing.now() - this.fixationChangePresentedAt > this.config.fixationDisplayTimeMs) {
-      this.fixationRenderer.renderNormal();
-      this.isFixationChanged = false;
-      this.input.setFixationChangeActive(false);
-    }
   }
 
-  private presentNextStimulus(timestamp: number): void {
-    if (this.currentStimulusIndex >= this.stimulusList.length) {
+  // ========== PRESENTATION ==========
+
+  private presentNext(timestamp: number): void {
+    const totalPresented = this.presentedStimuli + this.presentedFixations;
+
+    // Check completion
+    if (this.isSessionComplete()) {
       this.stop();
       return;
     }
 
-    // Check for fixation change
-    if (this.fixationChangeIndices.has(this.currentStimulusIndex)) {
-      this.fixationRenderer.renderChanged();
-      this.isFixationChanged = true;
-      this.fixationChangePresentedAt = timestamp;
-      this.input.setFixationChangeActive(true);
-      this.recorder.recordFixationChange(timestamp);
+    // Check if next is a fixation change
+    const nextFixation = this.fixationResults.find(
+      f => !f.presented && f.index === totalPresented
+    );
+
+    if (nextFixation || this.fixationErrorCount > 0) {
+      // Present fixation change
+      const fix = nextFixation ?? this.fixationResults.find(f => !f.presented);
+      if (fix) {
+        this.currentFixationData = fix;
+        this.isFixationActive = true;
+        this.fixationRenderer.renderChanged();
+        this.presentedAt = timestamp;
+        this.phase = 'presenting';
+        this.input.setFixationChangeActive(true);
+        this.recorder.recordFixationChange(timestamp);
+        this.presentedFixations++;
+      }
+    } else {
+      // Present stimulus
+      const stimulus = this.stimuliResults.find(s => !s.presented);
+      if (!stimulus) {
+        this.stop();
+        return;
+      }
+
+      stimulus.presented = true;
+      this.currentStimulusData = stimulus;
+      this.isFixationActive = false;
+
+      const degrees = this.grid.cellToDegrees(stimulus.x, stimulus.y);
+      this.currentStimulus = {
+        degX: degrees.x, degY: degrees.y,
+        diameter: this.config.stimulusDiameter,
+        shape: this.config.stimulusShape,
+        color: this.config.stimulusColour,
+      };
+
+      this.stimulusRenderer.render(this.currentStimulus);
+      this.presentedAt = timestamp;
+      this.phase = 'presenting';
+      this.input.setStimulusActive(true, timestamp);
+      this.recorder.recordStimulus(stimulus.x, stimulus.y, timestamp);
+      this.presentedStimuli++;
+
+      this.onProgress?.(this.presentedStimuli, this.stimuliResults.length);
     }
-
-    const cell = this.stimulusList[this.currentStimulusIndex];
-    const degrees = this.grid.cellToDegrees(cell.x, cell.y);
-
-    this.currentStimulus = {
-      degX: degrees.x,
-      degY: degrees.y,
-      diameter: this.config.stimulusDiameter,
-      shape: this.config.stimulusShape,
-      color: this.config.stimulusColour,
-    };
-
-    this.stimulusRenderer.render(this.currentStimulus);
-    this.stimulusPresentedAt = timestamp;
-    this.phase = 'presenting';
-    this.input.setStimulusActive(true, timestamp);
-
-    this.recorder.recordStimulus(cell.x, cell.y, timestamp);
-    this.onProgress?.(this.currentStimulusIndex + 1, this.stimulusList.length);
   }
 
-  private removeStimulus(): void {
-    if (this.currentStimulus) {
-      this.stimulusRenderer.erase(this.currentStimulus, '#000000');
-      this.currentStimulus = null;
-    }
-  }
+  // ========== RESPONSE HANDLING ==========
 
   private handleResponse(timestamp: number, classification: ResponseClassification): void {
     if (this.phase === 'paused') return;
 
-    if (classification === 'fixationResponse') {
-      const rt = timestamp - this.fixationChangePresentedAt;
-      this.recorder.recordResponse('fixationResponse', rt, timestamp);
+    const responseTime = timestamp - this.presentedAt;
+
+    if (classification === 'fixationResponse' && this.isFixationActive && this.currentFixationData) {
+      this.currentFixationData.correct = true;
+      this.currentFixationData.presented = true;
+      this.currentFixationData.responseMs = responseTime;
+      this.recorder.recordResponse('fixationResponse', responseTime, timestamp);
       this.fixationRenderer.renderNormal();
-      this.isFixationChanged = false;
+      this.isFixationActive = false;
       this.input.setFixationChangeActive(false);
+      this.currentFixationData = null;
+      this.falsePositiveCount = 0;
+      this.fixationErrorCount = 0;
+      // After valid response: hide and schedule next
+      this.advanceToNext(timestamp);
       return;
     }
 
     if (classification === 'falsePositive') {
+      this.falsePositiveCount++;
       this.recorder.recordResponse('falsePositive', 0, timestamp);
+      if (this.falsePositiveCount >= this.maxFalsePositives) {
+        this.onWarning?.('Please respond only when you see a stimulus.');
+        this.falsePositiveCount = 0;
+      }
       return;
     }
 
-    if (classification === 'tooEarly') return; // Ignored
+    if (classification === 'tooEarly') return;
 
-    if (classification === 'hit' && (this.phase === 'presenting' || this.phase === 'waitingResponse')) {
-      const rt = timestamp - this.stimulusPresentedAt;
-      const cell = this.stimulusList[this.currentStimulusIndex];
-      this.recorder.recordResponse('hit', rt, timestamp, cell?.x, cell?.y);
-      this.removeStimulus();
+    if (classification === 'hit' && this.currentStimulusData &&
+        (this.phase === 'presenting' || this.phase === 'waitingResponse')) {
+      this.currentStimulusData.correct = true;
+      this.currentStimulusData.responseMs = responseTime;
+      this.recorder.recordResponse('hit', responseTime, timestamp,
+        this.currentStimulusData.x, this.currentStimulusData.y);
+
+      // Hide stimulus immediately
+      if (this.currentStimulus) {
+        this.stimulusRenderer.erase(this.currentStimulus, '#000000');
+        this.currentStimulus = null;
+      }
       this.input.setStimulusActive(false);
+      this.falsePositiveCount = 0;
+      this.fixationErrorCount = 0;
+      this.currentStimulusData = null;
       this.advanceToNext(timestamp);
     }
   }
 
   private advanceToNext(timestamp: number): void {
-    this.currentStimulusIndex++;
-    this.input.setStimulusActive(false);
-
-    if (this.currentStimulusIndex >= this.stimulusList.length) {
-      this.stop();
-      return;
-    }
-
-    this.nextStimulusAt = timestamp + this.timing.randomInterval();
+    this.nextPresentAt = timestamp + this.timing.randomInterval();
     this.phase = 'interval';
+  }
+
+  private isSessionComplete(): boolean {
+    if (this.config.blockType === 'Progress') {
+      return this.presentedStimuli >= this.config.progressStimuliCount;
+    }
+    // Status/Standard: all non-centre cells presented
+    const nonCentre = this.stimuliResults.filter(s => !s.isCenter);
+    return nonCentre.every(s => s.presented);
   }
 
   private setPhase(phase: VrtSessionPhase): void {
@@ -291,95 +427,140 @@ export class VrtSessionEngine {
     this.onPhaseChange?.(phase);
   }
 
-  /**
-   * Build the stimulus list based on block type.
-   * Matches original NovaVisionApp TherapySessionTrialViewModel logic.
-   */
-  private buildStimulusList(): { x: number; y: number }[] {
-    const allCells = this.grid.getAllCells();
-    const centreX = Math.floor(this.config.gridSizeX / 2);
-    const centreY = Math.floor(this.config.gridSizeY / 2);
+  // ========== STIMULUS POPULATION (matches PopulateStimuliCells) ==========
 
-    switch (this.config.blockType) {
-      case 'Status':
-      case 'Standard': {
-        // All cells except centre (if excludeCentre), randomised
-        let cells = this.config.excludeCentre
-          ? allCells.filter(c => !(c.x === centreX && c.y === centreY))
-          : allCells;
-        return this.shuffle(cells).slice(0, this.config.sessionStimuli);
+  private populateStimuliCells(): void {
+    this.stimuliResults = [];
+    const cx = this.centreX;
+    const cy = this.centreY;
+
+    if (this.config.blockType === 'Progress') {
+      // Progress block: therapy area with every-5th random
+      const therapyArea = this.config.therapyArea
+        ? this.grid.parseTherapyArea(this.config.therapyArea)
+        : [];
+
+      for (let i = 0; i < this.config.progressStimuliCount; i++) {
+        let x: number, y: number;
+
+        if (!therapyArea.length || i % 5 === 0) {
+          // Every 5th (or no therapy area): random from full grid
+          // Retry if in therapy area or is centre (matches original)
+          do {
+            x = Math.floor(Math.random() * this.config.gridSizeX);
+            y = Math.floor(Math.random() * this.config.gridSizeY);
+          } while (
+            (therapyArea.some(c => c.x === x && c.y === y)) ||
+            (x === cx && y === cy)
+          );
+        } else {
+          // 80% of time: random from therapy area
+          const cell = therapyArea[Math.floor(Math.random() * therapyArea.length)];
+          x = cell.x;
+          y = cell.y;
+        }
+
+        this.stimuliResults.push(this.createStimulusResult(x, y, cx, cy));
       }
 
-      case 'Progress': {
-        // Therapy area cells + every 5th from all cells
-        const therapyArea = this.config.therapyArea
-          ? this.grid.parseTherapyArea(this.config.therapyArea)
-          : allCells;
-        const result: { x: number; y: number }[] = [];
-        const shuffledArea = this.shuffle([...therapyArea]);
-        const shuffledAll = this.shuffle([...allCells]);
-        let areaIdx = 0;
-        let allIdx = 0;
+    } else if (this.config.blockType === 'Rapid') {
+      // Rapid: therapy area cells (or all if no area defined)
+      const therapyArea = this.config.therapyArea
+        ? this.grid.parseTherapyArea(this.config.therapyArea)
+        : null;
 
-        for (let i = 0; i < this.config.progressStimuliCount; i++) {
-          if (i % 5 === 0 && i > 0) {
-            // Every 5th: pick from ALL grid cells (boundary bias mitigation)
-            result.push(shuffledAll[allIdx % shuffledAll.length]);
-            allIdx++;
-          } else {
-            result.push(shuffledArea[areaIdx % shuffledArea.length]);
-            areaIdx++;
+      for (let x = 0; x < this.config.gridSizeX; x++) {
+        for (let y = 0; y < this.config.gridSizeY; y++) {
+          if (!therapyArea || therapyArea.some(c => c.x === x && c.y === y)) {
+            this.stimuliResults.push(this.createStimulusResult(x, y, cx, cy));
           }
         }
-        return result;
       }
 
-      case 'Rapid': {
-        // Therapy area cells ordered by direction (sweep)
-        const therapyArea = this.config.therapyArea
-          ? this.grid.parseTherapyArea(this.config.therapyArea)
-          : allCells;
-        // Sort left-to-right for horizontal sweep
-        return [...therapyArea].sort((a, b) => a.x - b.x || a.y - b.y);
+    } else {
+      // Status / Standard: all grid cells
+      for (let x = 0; x < this.config.gridSizeX; x++) {
+        for (let y = 0; y < this.config.gridSizeY; y++) {
+          this.stimuliResults.push(this.createStimulusResult(x, y, cx, cy));
+        }
       }
     }
   }
 
-  /**
-   * Build fixation change schedule.
-   * Matches original: fixationChanges = round(stimuliCount * rate)
-   * Distributed with variance-based pseudo-random spacing.
-   */
-  private buildFixationSchedule(): Set<number> {
-    const count = this.stimulusList.length;
+  /** Quadrant classification matching original exactly:
+   * Cells where x==centreX OR y==centreY (but not centre) get NO quadrant flag */
+  private createStimulusResult(x: number, y: number, cx: number, cy: number): StimulusResultData {
+    return {
+      x, y,
+      correct: false,
+      presented: false,
+      responseMs: 0,
+      isTopLeft: x < cx && y < cy,
+      isTopRight: x > cx && y < cy,
+      isBottomLeft: x < cx && y > cy,
+      isBottomRight: x > cx && y > cy,
+      isCenter: x === cx && y === cy,
+    };
+  }
+
+  // ========== STIMULUS ORDERING (matches original) ==========
+
+  private orderStimuli(): void {
+    if (this.config.blockType === 'Rapid') {
+      // Directional ordering
+      switch (this.config.rapidDirection) {
+        case 'Left':
+          this.stimuliResults.sort((a, b) => b.x - a.x || a.y - b.y);
+          break;
+        case 'Right':
+          this.stimuliResults.sort((a, b) => a.x - b.x || a.y - b.y);
+          break;
+        case 'Up':
+          this.stimuliResults.sort((a, b) => b.y - a.y || a.x - b.x);
+          break;
+        case 'Down':
+          this.stimuliResults.sort((a, b) => a.y - b.y || a.x - b.x);
+          break;
+      }
+    } else {
+      // Status/Standard/Progress: filter out centre, randomise
+      this.stimuliResults = this.stimuliResults
+        .filter(s => !s.isCenter)
+        .sort(() => Math.random() - 0.5);
+    }
+  }
+
+  // ========== FIXATION SCHEDULE (matches original exactly) ==========
+
+  private buildFixationSchedule(): void {
+    this.fixationResults = [];
+    const count = this.stimuliResults.filter(s => !s.isCenter).length;
     const fixationChanges = Math.round(count * this.config.fixationRate);
-    if (fixationChanges === 0) return new Set();
+    if (fixationChanges === 0) return;
 
     const frequency = Math.round(
-      (1 - this.config.fixationVariance ** 2) * count / fixationChanges
+      ((1 - this.config.fixationVariance ** 2) * count) / fixationChanges
     );
 
-    const indices = new Set<number>();
-    let maxIndex = frequency;
-
-    for (let i = 0; i < fixationChanges && maxIndex < count; i++) {
-      const variance = Math.floor(frequency / 2);
-      const index = maxIndex + Math.floor(Math.random() * variance);
-      if (index < count) {
-        indices.add(index);
+    for (let i = 0; i < fixationChanges; i++) {
+      let index: number;
+      if (i === 0) {
+        index = 0; // First fixation ALWAYS at presentation 0
+      } else {
+        const maxPrev = Math.max(...this.fixationResults.map(f => f.index));
+        const rangeMin = maxPrev + frequency;
+        const rangeMax = maxPrev + frequency + Math.floor(frequency / 2);
+        index = rangeMin + Math.floor(Math.random() * (rangeMax - rangeMin));
       }
-      maxIndex = index + frequency;
-    }
 
-    return indices;
-  }
-
-  private shuffle<T>(array: T[]): T[] {
-    const arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
+      if (index < count) {
+        this.fixationResults.push({
+          index,
+          correct: false,
+          presented: false,
+          responseMs: 0,
+        });
+      }
     }
-    return arr;
   }
 }

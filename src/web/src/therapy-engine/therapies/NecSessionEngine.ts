@@ -1,35 +1,61 @@
 import type { TherapyCanvas } from '../core/TherapyCanvas';
-import type { StimulusShape, Point } from '../types/common';
+import type { StimulusShape } from '../types/common';
 
 /**
- * NEC Stage definitions from original CancellationSessionTrialViewModel:
- * Stage 0/1: Target=Diamond, Distractors=Circle+Cross
- * Stage 2: Target=Star, Distractors=Diamond+Cross
- * Stage 3: Target=Circle, Distractors=Diamond+Cross
+ * NEC Cancellation Task — faithful replication of CancellationMatrixHelper.cs
+ *
+ * Stages match original EXACTLY:
+ *   Stage 0 (Practice): Target=Diamond(10), Distract=Circle(6)+Cross(5)
+ *   Stage 1: Target=Diamond(20), Distract=Circle(12)+Cross(10)
+ *   Stage 2: Target=Star(20), Distract=Diamond(11)+Cross(11)
+ *   Stage 3: Target=Circle(20), Distract=Diamond(12)+Cross(10)
+ *
+ * Scoring from CancellationSessionTrialViewModel.cs:
+ *   DiamondClick(): Stage 0 or 1 = correct; else incorrect
+ *   StarClick(): Stage 2 = correct; else incorrect
+ *   CircleClick(): Stage 3 = correct; else incorrect
+ *   CrossClick(): ALWAYS incorrect
+ *
+ * Matrix: Grid-based (like original WPF Grid), centre 2x2 excluded.
+ * Session ends when ALL targets clicked.
  */
 
 export interface NecStageConfig {
   stage: number;
   targetShape: StimulusShape;
-  distractorShapes: StimulusShape[];
+  distractors: { shape: StimulusShape; count: number }[];
   targetCount: number;
-  distractorCount: number;
 }
 
+// Exact counts from CancellationMatrixHelper.cs
 export const NEC_STAGES: NecStageConfig[] = [
-  { stage: 0, targetShape: 'diamond', distractorShapes: ['circle', 'triangle'], targetCount: 12, distractorCount: 8 },
-  { stage: 1, targetShape: 'diamond', distractorShapes: ['circle', 'triangle'], targetCount: 14, distractorCount: 12 },
-  { stage: 2, targetShape: 'square', distractorShapes: ['diamond', 'triangle'], targetCount: 16, distractorCount: 16 },
-  { stage: 3, targetShape: 'circle', distractorShapes: ['diamond', 'triangle'], targetCount: 18, distractorCount: 20 },
+  {
+    stage: 0, targetShape: 'diamond', targetCount: 10,
+    distractors: [{ shape: 'circle', count: 6 }, { shape: 'cross', count: 5 }],
+  },
+  {
+    stage: 1, targetShape: 'diamond', targetCount: 20,
+    distractors: [{ shape: 'circle', count: 12 }, { shape: 'cross', count: 10 }],
+  },
+  {
+    stage: 2, targetShape: 'star', targetCount: 20,
+    distractors: [{ shape: 'diamond', count: 11 }, { shape: 'cross', count: 11 }],
+  },
+  {
+    stage: 3, targetShape: 'circle', targetCount: 20,
+    distractors: [{ shape: 'diamond', count: 12 }, { shape: 'cross', count: 10 }],
+  },
 ];
 
 export interface MatrixItem {
   id: number;
   shape: StimulusShape;
   isTarget: boolean;
-  x: number; // CSS pixels
+  row: number;
+  col: number;
+  x: number; // rendered CSS pixel position
   y: number;
-  size: number; // CSS pixels
+  size: number;
   clicked: boolean;
   color: string;
 }
@@ -46,28 +72,29 @@ export interface NecSessionState {
 }
 
 /**
- * NeuroEyeCoach Session Engine.
- * Cancellation task: patient clicks all target shapes in a matrix.
- * Session ends when all targets are found.
+ * NEC Session Engine — cancellation task.
+ * Patient clicks target shapes in a matrix. Cross clicks are always wrong.
  */
 export class NecSessionEngine {
   private canvas: TherapyCanvas;
   private state: NecSessionState | null = null;
   private boundClickHandler: ((e: MouseEvent) => void) | null = null;
 
+  // Grid layout params
+  private readonly gridRows = 8;
+  private readonly gridCols = 10;
+  // Centre 2x2 excluded (rows 3-4, cols 4-5 in 0-indexed)
+  private readonly centreRows = [3, 4];
+  private readonly centreCols = [4, 5];
+
   constructor(canvas: TherapyCanvas) {
     this.canvas = canvas;
   }
 
-  /** Start a new NEC session */
   start(level: number, stageIndex: number): NecSessionState {
     const stage = NEC_STAGES[stageIndex % NEC_STAGES.length];
 
-    // Scale difficulty by level (1-12)
-    const scaledTargets = stage.targetCount + Math.floor(level * 0.5);
-    const scaledDistractors = stage.distractorCount + level * 2;
-
-    const items = this.generateMatrix(stage, scaledTargets, scaledDistractors);
+    const items = this.generateGridMatrix(stage);
 
     this.state = {
       stage,
@@ -75,7 +102,7 @@ export class NecSessionEngine {
       items,
       correctClicks: 0,
       incorrectClicks: 0,
-      totalTargets: scaledTargets,
+      totalTargets: stage.targetCount,
       startTime: performance.now(),
       isComplete: false,
     };
@@ -83,7 +110,6 @@ export class NecSessionEngine {
     return this.state;
   }
 
-  /** Render the current matrix on the canvas */
   render(backgroundColor: string = '#1e293b'): void {
     if (!this.state) return;
 
@@ -98,7 +124,6 @@ export class NecSessionEngine {
     }
   }
 
-  /** Start listening for clicks on shapes */
   startInput(onItemClick: (item: MatrixItem, result: 'correct' | 'incorrect') => void): void {
     this.boundClickHandler = (e: MouseEvent) => {
       if (!this.state || this.state.isComplete) return;
@@ -108,7 +133,7 @@ export class NecSessionEngine {
       const clickY = e.clientY - rect.top;
 
       // Find clicked item (nearest within hit radius)
-      const hitRadius = 30; // Generous hit area for accessibility
+      const hitRadius = 30;
       let closest: MatrixItem | null = null;
       let closestDist = Infinity;
 
@@ -124,14 +149,15 @@ export class NecSessionEngine {
       }
 
       if (!closest) return;
-
       closest.clicked = true;
 
-      if (closest.isTarget) {
+      // Scoring matches original exactly
+      const isCorrect = this.isCorrectClick(closest.shape, this.state.stage.stage);
+
+      if (isCorrect) {
         this.state.correctClicks++;
         onItemClick(closest, 'correct');
 
-        // Check completion
         if (this.state.correctClicks >= this.state.totalTargets) {
           this.state.isComplete = true;
         }
@@ -140,11 +166,22 @@ export class NecSessionEngine {
         onItemClick(closest, 'incorrect');
       }
 
-      this.render(); // Redraw
+      this.render();
     };
 
     this.canvas.getCanvas().addEventListener('click', this.boundClickHandler);
     this.canvas.getCanvas().style.cursor = 'crosshair';
+  }
+
+  /** Scoring from CancellationSessionTrialViewModel.cs */
+  private isCorrectClick(shape: StimulusShape, stage: number): boolean {
+    switch (shape) {
+      case 'diamond': return stage === 0 || stage === 1;
+      case 'star': return stage === 2;
+      case 'circle': return stage === 3;
+      case 'cross': return false; // ALWAYS incorrect
+      default: return false;
+    }
   }
 
   stopInput(): void {
@@ -155,23 +192,14 @@ export class NecSessionEngine {
     this.canvas.getCanvas().style.cursor = 'none';
   }
 
-  getState(): NecSessionState | null {
-    return this.state;
-  }
+  getState(): NecSessionState | null { return this.state; }
 
   getElapsedSeconds(): number {
     if (!this.state) return 0;
     return (performance.now() - this.state.startTime) / 1000;
   }
 
-  getResults(): {
-    correctClicks: number;
-    incorrectClicks: number;
-    missedTargets: number;
-    totalTargets: number;
-    elapsedSeconds: number;
-    accuracy: number;
-  } | null {
+  getResults() {
     if (!this.state) return null;
     return {
       correctClicks: this.state.correctClicks,
@@ -185,93 +213,73 @@ export class NecSessionEngine {
     };
   }
 
-  /** Generate a random matrix of targets and distractors */
-  private generateMatrix(
-    stage: NecStageConfig,
-    targetCount: number,
-    distractorCount: number,
-  ): MatrixItem[] {
+  /**
+   * Generate grid-based matrix matching original MatrixHelper.GenerateMatrixValues.
+   * Grid of rows × cols, centre 2x2 excluded, shapes placed randomly.
+   */
+  private generateGridMatrix(stage: NecStageConfig): MatrixItem[] {
     const { width, height } = this.canvas.getCssSize();
-    const margin = 60;
-    const itemSize = 28;
-    const items: MatrixItem[] = [];
-    let id = 0;
+    const cellWidth = (width - 80) / this.gridCols;
+    const cellHeight = (height - 80) / this.gridRows;
+    const itemSize = Math.min(cellWidth, cellHeight) * 0.6;
 
-    const positions = this.generateRandomPositions(
-      targetCount + distractorCount,
-      margin, margin,
-      width - margin, height - margin,
-      itemSize * 1.5,
-    );
-
-    // Place targets
-    for (let i = 0; i < targetCount && i < positions.length; i++) {
-      items.push({
-        id: id++,
-        shape: stage.targetShape,
-        isTarget: true,
-        x: positions[i].x,
-        y: positions[i].y,
-        size: itemSize,
-        clicked: false,
-        color: '#ffffff',
-      });
+    // Build available positions (exclude centre 2x2)
+    const positions: { row: number; col: number }[] = [];
+    for (let r = 0; r < this.gridRows; r++) {
+      for (let c = 0; c < this.gridCols; c++) {
+        if (this.centreRows.includes(r) && this.centreCols.includes(c)) continue;
+        positions.push({ row: r, col: c });
+      }
     }
 
-    // Place distractors
-    for (let i = targetCount; i < targetCount + distractorCount && i < positions.length; i++) {
-      const distShape = stage.distractorShapes[
-        Math.floor(Math.random() * stage.distractorShapes.length)
-      ];
+    // Shuffle positions
+    for (let i = positions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [positions[i], positions[j]] = [positions[j], positions[i]];
+    }
+
+    // Build shape list: targets first, then each distractor type
+    const shapes: { shape: StimulusShape; isTarget: boolean }[] = [];
+    for (let i = 0; i < stage.targetCount; i++) {
+      shapes.push({ shape: stage.targetShape, isTarget: true });
+    }
+    for (const d of stage.distractors) {
+      for (let i = 0; i < d.count; i++) {
+        shapes.push({ shape: d.shape, isTarget: false });
+      }
+    }
+
+    // Shuffle shapes
+    for (let i = shapes.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shapes[i], shapes[j]] = [shapes[j], shapes[i]];
+    }
+
+    // Place shapes into grid positions
+    const items: MatrixItem[] = [];
+    const count = Math.min(shapes.length, positions.length);
+    for (let i = 0; i < count; i++) {
+      const pos = positions[i];
       items.push({
-        id: id++,
-        shape: distShape,
-        isTarget: false,
-        x: positions[i].x,
-        y: positions[i].y,
+        id: i,
+        shape: shapes[i].shape,
+        isTarget: shapes[i].isTarget,
+        row: pos.row,
+        col: pos.col,
+        x: 40 + pos.col * cellWidth + cellWidth / 2,
+        y: 40 + pos.row * cellHeight + cellHeight / 2,
         size: itemSize,
         clicked: false,
-        color: '#94a3b8',
+        color: shapes[i].isTarget ? '#ffffff' : '#94a3b8',
       });
     }
 
     return items;
   }
 
-  /** Generate non-overlapping random positions */
-  private generateRandomPositions(
-    count: number,
-    minX: number, minY: number,
-    maxX: number, maxY: number,
-    minDistance: number,
-  ): Point[] {
-    const positions: Point[] = [];
-    let attempts = 0;
-    const maxAttempts = count * 100;
-
-    while (positions.length < count && attempts < maxAttempts) {
-      const x = minX + Math.random() * (maxX - minX);
-      const y = minY + Math.random() * (maxY - minY);
-
-      const tooClose = positions.some((p) => {
-        const dx = p.x - x;
-        const dy = p.y - y;
-        return Math.sqrt(dx * dx + dy * dy) < minDistance;
-      });
-
-      if (!tooClose) {
-        positions.push({ x, y });
-      }
-      attempts++;
-    }
-
-    return positions;
-  }
-
   private drawShape(
     ctx: CanvasRenderingContext2D,
-    shape: StimulusShape,
-    x: number, y: number, radius: number,
+    shape: StimulusShape, x: number, y: number, radius: number,
   ): void {
     switch (shape) {
       case 'circle':
@@ -297,6 +305,27 @@ export class NecSessionEngine {
         ctx.closePath();
         ctx.fill();
         break;
+      case 'cross': {
+        const t = radius * 0.3;
+        ctx.fillRect(x - radius, y - t, radius * 2, t * 2);
+        ctx.fillRect(x - t, y - radius, t * 2, radius * 2);
+        break;
+      }
+      case 'star': {
+        const spikes = 5;
+        const inner = radius * 0.4;
+        ctx.beginPath();
+        for (let i = 0; i < spikes * 2; i++) {
+          const r = i % 2 === 0 ? radius : inner;
+          const angle = -Math.PI / 2 + (Math.PI / spikes) * i;
+          const px = x + Math.cos(angle) * r;
+          const py = y + Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
     }
   }
 }

@@ -8,7 +8,7 @@ export interface Size {
   height: number;
 }
 
-export type StimulusShape = 'circle' | 'square' | 'diamond' | 'triangle';
+export type StimulusShape = 'circle' | 'square' | 'diamond' | 'triangle' | 'cross' | 'star';
 
 export interface CalibrationData {
   degreePixels: number;

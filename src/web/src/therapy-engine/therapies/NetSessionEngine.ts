@@ -7,29 +7,36 @@ import { SessionRecorder } from '../session/SessionRecorder';
 import type { ResponseClassification } from '../types/common';
 
 /**
- * NET contrast staircase constants from original NovaVisionApp.
- * UserNetTherapyResultData.cs:
+ * NET contrast staircase constants from original UserNetTherapyResultData.cs:
  *   if correct >= UpperLimit AND contrast >= 0.15 → contrast -= 0.1
  *   if correct <= LowerLimit AND contrast <= 0.9  → contrast += 0.05
+ *
+ * Key differences from simplified version:
+ * - Target cycling is RANDOM (not sequential 0,1,2,3,4)
+ * - Staircase applied ONCE at session end (server-side), not per-cycle
+ * - Practice requires 8/10 correct to pass
+ * - Per-target presentation count tracked independently
  */
+
 const CONTRAST_MIN = 0.15;
 const CONTRAST_MAX = 0.9;
-const STEP_DOWN = 0.1;  // Asymmetric: bigger step down (harder)
-const STEP_UP = 0.05;   // Asymmetric: smaller step up (easier)
+const STEP_DOWN = 0.1;
+const STEP_UP = 0.05;
+const PRACTICE_PASS_THRESHOLD = 8; // Must get 8/10 correct in practice
 
 export interface NetTargetConfig {
   targetNumber: number;
   x: number;  // visual degrees
   y: number;
-  diameter: number;  // visual degrees
-  contrast: number;  // 0.0-1.0
+  diameter: number;
+  contrast: number; // 0.0-1.0
 }
 
 export interface NetSessionConfig {
   targets: NetTargetConfig[];
-  upperLimit: number;  // Correct count threshold for contrast decrease
-  lowerLimit: number;  // Correct count threshold for contrast increase
-  presentations: number;
+  upperLimit: number;  // Correct count threshold for decrease (default 43)
+  lowerLimit: number;  // Correct count threshold for increase (default 32)
+  presentations: number; // Per-target presentations
   practicePresentations: number;
   practiceContrast: number;
   practiceX: number;
@@ -44,13 +51,8 @@ interface TargetState {
   currentContrast: number;
 }
 
-type NetPhase = 'idle' | 'practice' | 'main' | 'presenting' | 'waiting' | 'interval' | 'complete' | 'paused';
+type NetPhase = 'idle' | 'practice' | 'main' | 'presenting' | 'waiting' | 'interval' | 'complete' | 'paused' | 'practiceFailed';
 
-/**
- * NeuroEyeTherapy Session Engine.
- * Presents contrast targets at fixed positions, adjusting contrast
- * per-target using an asymmetric staircase algorithm.
- */
 export class NetSessionEngine {
   private canvas: TherapyCanvas;
   private stimulusRenderer: StimulusRenderer;
@@ -62,12 +64,13 @@ export class NetSessionEngine {
   private config: NetSessionConfig;
   private targetStates: TargetState[] = [];
   private phase: NetPhase = 'idle';
-  private currentTargetIndex: number = 0;
-  private presentationCount: number = 0;
+  private currentTargetIndex: number = -1;
   private stimulusPresentedAt: number = 0;
   private nextPresentAt: number = 0;
   private isPractice: boolean = false;
-  private practiceCount: number = 0;
+  private practiceCorrect: number = 0;
+  private practicePresented: number = 0;
+  private totalPresented: number = 0;
 
   private onPhaseChange: ((phase: NetPhase) => void) | null = null;
   private onProgress: ((presented: number, total: number) => void) | null = null;
@@ -92,7 +95,6 @@ export class NetSessionEngine {
     }));
   }
 
-  /** Start with practice phase */
   start(
     onPhaseChange?: (phase: NetPhase) => void,
     onProgress?: (presented: number, total: number) => void,
@@ -100,29 +102,32 @@ export class NetSessionEngine {
     this.onPhaseChange = onPhaseChange ?? null;
     this.onProgress = onProgress ?? null;
     this.isPractice = true;
-    this.practiceCount = 0;
-    this.presentationCount = 0;
-    this.currentTargetIndex = 0;
+    this.practiceCorrect = 0;
+    this.practicePresented = 0;
+    this.totalPresented = 0;
 
     this.recorder.start();
     this.canvas.clear('#000000');
     this.fixationRenderer.renderNormal();
 
     this.input.start(
-      (timestamp, classification) => this.handleResponse(timestamp, classification),
+      (ts, cls) => this.handleResponse(ts, cls),
       () => this.pause(),
     );
 
     this.nextPresentAt = this.timing.now() + this.timing.randomInterval();
-    this.timing.start((timestamp) => this.tick(timestamp));
+    this.timing.start((ts) => this.tick(ts));
     this.setPhase('practice');
   }
 
-  /** Skip to main phase (after practice or when resuming) */
   startMain(): void {
     this.isPractice = false;
-    this.presentationCount = 0;
-    this.currentTargetIndex = 0;
+    this.totalPresented = 0;
+    // Reset per-target counts for main session
+    for (const ts of this.targetStates) {
+      ts.presented = 0;
+      ts.correct = 0;
+    }
     this.nextPresentAt = this.timing.now() + this.timing.randomInterval();
     this.setPhase('main');
   }
@@ -143,15 +148,22 @@ export class NetSessionEngine {
   stop(): void {
     this.timing.stop();
     this.input.stop();
+    // Apply staircase ONCE at session end (matches original server-side logic)
+    if (!this.isPractice) {
+      this.applyStaircase();
+    }
     this.setPhase('complete');
   }
 
-  getRecorder(): SessionRecorder {
-    return this.recorder;
-  }
-
-  getTargetStates(): TargetState[] {
-    return [...this.targetStates];
+  getRecorder(): SessionRecorder { return this.recorder; }
+  getTargetStates(): TargetState[] { return [...this.targetStates]; }
+  isPracticePhase(): boolean { return this.isPractice; }
+  getPracticeResult(): { correct: number; presented: number; passed: boolean } {
+    return {
+      correct: this.practiceCorrect,
+      presented: this.practicePresented,
+      passed: this.practiceCorrect >= PRACTICE_PASS_THRESHOLD,
+    };
   }
 
   private tick(timestamp: number): void {
@@ -174,8 +186,7 @@ export class NetSessionEngine {
   }
 
   private presentTarget(timestamp: number): void {
-    let contrast: number;
-    let x: number, y: number, diameter: number;
+    let contrast: number, x: number, y: number, diameter: number;
 
     if (this.isPractice) {
       contrast = this.config.practiceContrast;
@@ -183,7 +194,22 @@ export class NetSessionEngine {
       y = this.config.practiceY;
       diameter = this.config.practiceDiameter;
     } else {
-      const target = this.targetStates[this.currentTargetIndex];
+      // RANDOM target selection (matches original ShowTarget method)
+      // Pick random target that hasn't reached max presentations
+      const maxPerTarget = this.config.presentations;
+      const available = this.targetStates
+        .map((ts, idx) => ({ ts, idx }))
+        .filter(({ ts }) => ts.presented < maxPerTarget);
+
+      if (available.length === 0) {
+        this.stop();
+        return;
+      }
+
+      const pick = available[Math.floor(Math.random() * available.length)];
+      this.currentTargetIndex = pick.idx;
+
+      const target = pick.ts;
       contrast = target.currentContrast;
       x = target.config.x;
       y = target.config.y;
@@ -191,7 +217,6 @@ export class NetSessionEngine {
       target.presented++;
     }
 
-    // Render target at current contrast (alpha-based)
     const color = `rgba(255, 255, 255, ${contrast})`;
 
     this.canvas.clear('#000000');
@@ -203,10 +228,7 @@ export class NetSessionEngine {
     this.stimulusPresentedAt = timestamp;
     this.input.setStimulusActive(true, timestamp);
     this.phase = 'presenting';
-
-    this.recorder.recordStimulus(
-      Math.round(x), Math.round(y), timestamp,
-    );
+    this.recorder.recordStimulus(Math.round(x), Math.round(y), timestamp);
   }
 
   private handleResponse(timestamp: number, classification: ResponseClassification): void {
@@ -216,14 +238,15 @@ export class NetSessionEngine {
       this.recorder.recordResponse('falsePositive', 0, timestamp);
       return;
     }
-
     if (classification === 'tooEarly') return;
 
     if (classification === 'hit' && (this.phase === 'presenting' || this.phase === 'waiting')) {
       const rt = timestamp - this.stimulusPresentedAt;
       this.recorder.recordResponse('hit', rt, timestamp);
 
-      if (!this.isPractice) {
+      if (this.isPractice) {
+        this.practiceCorrect++;
+      } else {
         this.targetStates[this.currentTargetIndex].correct++;
       }
 
@@ -238,23 +261,26 @@ export class NetSessionEngine {
     this.input.setStimulusActive(false);
 
     if (this.isPractice) {
-      this.practiceCount++;
-      if (this.practiceCount >= this.config.practicePresentations) {
-        this.startMain();
+      this.practicePresented++;
+      if (this.practicePresented >= this.config.practicePresentations) {
+        // Check practice pass threshold (8/10 in original)
+        if (this.practiceCorrect >= PRACTICE_PASS_THRESHOLD) {
+          this.startMain();
+        } else {
+          this.setPhase('practiceFailed');
+        }
         return;
       }
     } else {
-      this.presentationCount++;
-      this.onProgress?.(this.presentationCount, this.config.presentations);
+      this.totalPresented++;
+      const totalRequired = this.config.presentations * this.targetStates.length;
+      this.onProgress?.(this.totalPresented, totalRequired);
 
-      // Apply staircase after each complete cycle through all targets
-      this.currentTargetIndex = (this.currentTargetIndex + 1) % this.targetStates.length;
-      if (this.currentTargetIndex === 0) {
-        this.applyStaircase();
-      }
-
-      if (this.presentationCount >= this.config.presentations) {
-        this.applyStaircase(); // Final adjustment
+      // Check if all targets have reached their presentation count
+      const allDone = this.targetStates.every(
+        ts => ts.presented >= this.config.presentations
+      );
+      if (allDone) {
         this.stop();
         return;
       }
@@ -265,8 +291,8 @@ export class NetSessionEngine {
   }
 
   /**
-   * Apply asymmetric staircase from original NovaVisionApp.
-   * Per-target, based on correct count vs upper/lower thresholds.
+   * Apply asymmetric staircase ONCE at session end.
+   * Matches original UserNetTherapyResultData.cs UpdateTherapy method.
    */
   private applyStaircase(): void {
     for (const target of this.targetStates) {

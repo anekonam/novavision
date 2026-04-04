@@ -60,6 +60,31 @@ export class StimulusRenderer {
         ctx.closePath();
         ctx.fill();
         break;
+
+      case 'cross': {
+        const thickness = radiusPx * 0.35;
+        ctx.fillRect(pos.x - radiusPx, pos.y - thickness, radiusPx * 2, thickness * 2);
+        ctx.fillRect(pos.x - thickness, pos.y - radiusPx, thickness * 2, radiusPx * 2);
+        break;
+      }
+
+      case 'star': {
+        const spikes = 5;
+        const outerR = radiusPx;
+        const innerR = radiusPx * 0.4;
+        ctx.beginPath();
+        for (let i = 0; i < spikes * 2; i++) {
+          const r = i % 2 === 0 ? outerR : innerR;
+          const angle = (Math.PI / 2) * -1 + (Math.PI / spikes) * i;
+          const px = pos.x + Math.cos(angle) * r;
+          const py = pos.y + Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
     }
   }
 
