@@ -1,5 +1,5 @@
 import type { TherapyCanvas } from '../core/TherapyCanvas';
-import { StimulusRenderer, type StimulusConfig } from '../core/StimulusRenderer';
+import { StimulusRenderer } from '../core/StimulusRenderer';
 import { FixationRenderer } from '../core/FixationRenderer';
 import { TimingEngine } from '../core/TimingEngine';
 import { InputHandler } from '../core/InputHandler';
@@ -192,7 +192,6 @@ export class NetSessionEngine {
     }
 
     // Render target at current contrast (alpha-based)
-    const alpha = Math.round(contrast * 255);
     const color = `rgba(255, 255, 255, ${contrast})`;
 
     this.canvas.clear('#000000');

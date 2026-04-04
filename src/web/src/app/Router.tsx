@@ -37,15 +37,20 @@ export function Router() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
+
+        {/* Therapy sessions -- accessible without portal chrome (fullscreen) */}
+        <Route path="/therapy/vrt" element={<VrtSessionPage />} />
+        <Route path="/therapy/nec" element={<NecSessionPage />} />
+        <Route path="/therapy/net" element={<NetSessionPage />} />
+        <Route path="/calibration" element={<CalibrationWizard onComplete={() => window.location.href = '/'} />} />
+
+        {/* Protected portal routes */}
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route path="/" element={<RoleDashboard />} />
           <Route path="/therapies" element={<DashboardPage />} />
           <Route path="/results" element={<Placeholder title="Results" />} />
-          <Route path="/therapy/vrt" element={<VrtSessionPage />} />
-          <Route path="/therapy/nec" element={<NecSessionPage />} />
-          <Route path="/therapy/net" element={<NetSessionPage />} />
-          <Route path="/calibration" element={<CalibrationWizard onComplete={() => window.location.href = '/'} />} />
           <Route path="/patients" element={
             <ProtectedRoute allowedRoles={['Clinician', 'Admin']}>
               <ClinicianDashboard />

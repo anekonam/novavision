@@ -53,7 +53,6 @@ export interface NecSessionState {
 export class NecSessionEngine {
   private canvas: TherapyCanvas;
   private state: NecSessionState | null = null;
-  private onClick: ((item: MatrixItem) => void) | null = null;
   private boundClickHandler: ((e: MouseEvent) => void) | null = null;
 
   constructor(canvas: TherapyCanvas) {

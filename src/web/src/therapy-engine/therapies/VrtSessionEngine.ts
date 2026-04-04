@@ -1,11 +1,11 @@
 import type { TherapyCanvas } from '../core/TherapyCanvas';
 import { StimulusRenderer, type StimulusConfig } from '../core/StimulusRenderer';
-import { FixationRenderer, type FixationConfig } from '../core/FixationRenderer';
+import { FixationRenderer } from '../core/FixationRenderer';
 import { GridSystem } from '../core/GridSystem';
-import { TimingEngine, type TimingConfig } from '../core/TimingEngine';
+import { TimingEngine } from '../core/TimingEngine';
 import { InputHandler } from '../core/InputHandler';
 import { SessionRecorder } from '../session/SessionRecorder';
-import type { StimulusShape, Quadrant, ResponseClassification } from '../types/common';
+import type { StimulusShape, ResponseClassification } from '../types/common';
 
 export type VrtBlockType = 'Status' | 'Progress' | 'Rapid' | 'Standard';
 type VrtSessionPhase = 'idle' | 'presenting' | 'waitingResponse' | 'interval' | 'complete' | 'paused';

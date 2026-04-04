@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { NecSessionEngine, TherapyCanvas, type CalibrationData, type MatrixItem } from '../../therapy-engine';
 
 type SessionPhase = 'pre' | 'active' | 'complete';
@@ -6,9 +6,11 @@ type SessionPhase = 'pre' | 'active' | 'complete';
 export function NecSessionPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<NecSessionEngine | null>(null);
+  const canvasRef = useRef<TherapyCanvas | null>(null);
   const [phase, setPhase] = useState<SessionPhase>('pre');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [results, setResults] = useState<ReturnType<NecSessionEngine['getResults']>>(null);
+  const [stats, setStats] = useState({ correct: 0, total: 0 });
 
   const calibration: CalibrationData = {
     degreePixels: 50, distanceCm: 30, pixelsPerCm: 37.8,
@@ -16,9 +18,18 @@ export function NecSessionPage() {
   };
 
   const startSession = useCallback(() => {
-    if (!containerRef.current) return;
+    setPhase('active'); // This triggers useEffect to mount the engine
+  }, []);
+
+  // Start engine AFTER the canvas container is mounted
+  useEffect(() => {
+    if (phase !== 'active' || !containerRef.current || engineRef.current) return;
+
+    containerRef.current.innerHTML = '';
 
     const canvas = new TherapyCanvas(containerRef.current, calibration);
+    canvasRef.current = canvas;
+
     const engine = new NecSessionEngine(canvas);
     engineRef.current = engine;
 
@@ -27,25 +38,39 @@ export function NecSessionPage() {
 
     engine.start(level, stageIndex);
     engine.render();
+
+    const state = engine.getState();
+    if (state) setStats({ correct: 0, total: state.totalTargets });
+
     engine.startInput((_item: MatrixItem, result: 'correct' | 'incorrect') => {
       setFeedback(result);
-      setTimeout(() => setFeedback(null), 300);
+      setTimeout(() => setFeedback(null), 400);
 
-      const state = engine.getState();
-      if (state?.isComplete) {
+      const currentState = engine.getState();
+      if (currentState) {
+        setStats({ correct: currentState.correctClicks, total: currentState.totalTargets });
+      }
+
+      if (currentState?.isComplete) {
         engine.stopInput();
         setResults(engine.getResults());
         setPhase('complete');
       }
     });
 
-    containerRef.current.requestFullscreen?.();
-    setPhase('active');
-  }, []);
+    containerRef.current.requestFullscreen?.().catch(() => {});
+
+    return () => {
+      engine.stopInput();
+      canvas.destroy();
+      engineRef.current = null;
+      canvasRef.current = null;
+    };
+  }, [phase]);
 
   if (phase === 'pre') {
     return (
-      <div className="mx-auto max-w-2xl py-8">
+      <div className="mx-auto max-w-2xl py-8 px-4">
         <h1 className="text-3xl font-bold text-text">NeuroEyeCoach</h1>
         <p className="mt-2 text-lg text-text-secondary">Level 4 of 12</p>
 
@@ -53,11 +78,22 @@ export function NecSessionPage() {
           <h2 className="text-xl font-bold text-text">Instructions</h2>
           <ul className="mt-4 space-y-3 text-lg text-text-secondary">
             <li>A field of shapes will appear on screen</li>
-            <li><span className="font-bold text-text">Click all the target shapes</span> (diamonds for this stage)</li>
-            <li>Avoid clicking distractors (circles and crosses)</li>
+            <li><span className="font-bold text-text">Click all the diamond shapes</span> (the rotated squares)</li>
+            <li>Avoid clicking the other shapes (circles and triangles)</li>
             <li>Find all targets as quickly as you can</li>
             <li>The session ends when all targets are found</li>
           </ul>
+
+          <div className="mt-6 flex items-center justify-center gap-8 rounded-lg bg-surface-secondary p-6">
+            <div className="text-center">
+              <div className="mx-auto h-8 w-8 rotate-45 bg-white" />
+              <p className="mt-2 text-sm font-bold text-secondary">Target (click these)</p>
+            </div>
+            <div className="text-center">
+              <div className="mx-auto h-8 w-8 rounded-full bg-gray-400" />
+              <p className="mt-2 text-sm font-bold text-danger">Distractor (avoid)</p>
+            </div>
+          </div>
 
           <button
             onClick={startSession}
@@ -72,7 +108,7 @@ export function NecSessionPage() {
 
   if (phase === 'complete' && results) {
     return (
-      <div className="mx-auto max-w-2xl py-8">
+      <div className="mx-auto max-w-2xl py-8 px-4">
         <h1 className="text-3xl font-bold text-text">Session Complete</h1>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -99,7 +135,7 @@ export function NecSessionPage() {
 
         <a
           href="/"
-          className="mt-8 block w-full rounded-lg border-2 border-border px-4 py-3 text-center text-lg font-semibold text-text-secondary hover:bg-surface-secondary"
+          className="mt-8 block w-full rounded-lg bg-primary px-4 py-3 text-center text-lg font-semibold text-text-on-primary hover:bg-primary-hover"
         >
           Return to Dashboard
         </a>
@@ -107,17 +143,24 @@ export function NecSessionPage() {
     );
   }
 
-  // Active session
+  // Active session -- canvas always in DOM
   return (
     <div className="relative h-screen w-screen bg-slate-900">
       <div ref={containerRef} className="h-full w-full" />
+
+      {/* Feedback toast */}
       {feedback && (
-        <div className={`absolute top-4 left-1/2 -translate-x-1/2 rounded-lg px-6 py-2 text-lg font-bold ${
+        <div className={`absolute top-6 left-1/2 -translate-x-1/2 rounded-lg px-8 py-3 text-xl font-bold shadow-lg ${
           feedback === 'correct' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
         }`}>
           {feedback === 'correct' ? 'Found!' : 'Wrong shape'}
         </div>
       )}
+
+      {/* Progress HUD */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-lg bg-black/50 px-6 py-2 text-lg text-white">
+        Found: {stats.correct} / {stats.total}
+      </div>
     </div>
   );
 }

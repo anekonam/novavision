@@ -2,7 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy solution and project files for layer-cached restore
-COPY NovaVision.sln Directory.Build.props global.json ./
+COPY NovaVision.slnx Directory.Build.props global.json ./
 COPY src/NovaVision.Api/NovaVision.Api.csproj src/NovaVision.Api/
 COPY src/NovaVision.Core/NovaVision.Core.csproj src/NovaVision.Core/
 COPY src/NovaVision.Identity/NovaVision.Identity.csproj src/NovaVision.Identity/
