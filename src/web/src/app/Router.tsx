@@ -9,6 +9,7 @@ import { VrtSessionPage } from '../features/therapy/VrtSessionPage';
 import { NecSessionPage } from '../features/therapy/NecSessionPage';
 import { NetSessionPage } from '../features/therapy/NetSessionPage';
 import { CalibrationWizard } from '../features/therapy/CalibrationWizard';
+import { TestHarness } from '../features/therapy/TestHarness';
 import { useAuth } from '../hooks/useAuth';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
@@ -45,6 +46,7 @@ export function Router() {
         <Route path="/therapy/nec" element={<NecSessionPage />} />
         <Route path="/therapy/net" element={<NetSessionPage />} />
         <Route path="/calibration" element={<CalibrationWizard onComplete={() => window.location.href = '/'} />} />
+        <Route path="/test-harness" element={<TestHarness />} />
 
         {/* Protected portal routes */}
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
